@@ -8,13 +8,62 @@ This document defines the high-level boundaries of Ivory. It is a contract: impl
 
 **Ivory is independently implemented. No part of Ivory Core depends on Obsidian internals. Obsidian compatibility exists only through an adapter boundary.**
 
+## Locked application stack
+
+Ivory Desktop uses:
+
+- **Electron** as the desktop application shell;
+- **Chromium** as the renderer/runtime environment;
+- **TypeScript** as the primary application and plugin/API language.
+
+This is a deliberate architectural choice, not a placeholder. It keeps Ivory in a JavaScript/DOM environment that is well suited to the V0 desktop-parity goal and the later Obsidian plugin compatibility layer.
+
+A future change away from Electron/Chromium/TypeScript is an architecture change and must be explicitly documented rather than introduced incrementally.
+
+## Electron process boundary
+
+Ivory should maintain a clear Electron process model:
+
+```text
+Electron Main Process
+|
++-- application lifecycle
++-- native windows
++-- filesystem / OS capabilities
++-- native menus / dialogs
++-- IPC coordination
+|
++-- secure preload / bridge
+        |
+        +-- documented Ivory desktop capabilities
+                |
+                v
+Chromium Renderer
+|
++-- Ivory UI / Workspace
++-- Editor
++-- Canvas
++-- Bases
++-- Graph
++-- Search / navigation surfaces
++-- Plugin-facing UI runtime where permitted
+```
+
+Renderer code must not gain unrestricted Node.js/OS access merely for convenience. Native capabilities should cross a deliberate bridge so that later plugin execution and security boundaries remain tractable.
+
 ## Major layers
 
 ```text
-Ivory Desktop Application
+Ivory Desktop Application (Electron)
 |
-+-- UI / Workspace
++-- Desktop / Native Layer
+|   +-- lifecycle
 |   +-- windows
+|   +-- OS integration
+|   +-- native filesystem capabilities
+|   +-- IPC / preload bridge
+|
++-- UI / Workspace (Chromium renderer)
 |   +-- panes
 |   +-- tabs
 |   +-- views
@@ -53,6 +102,10 @@ Ivory Desktop Application
 ```
 
 ## Ownership rules
+
+### Desktop layer owns native capability
+
+Electron Main and explicitly exposed bridge APIs own OS-level access. Renderer/UI code should request native operations through documented desktop interfaces rather than reaching directly into Electron/Node internals.
 
 ### Storage owns persistence
 
@@ -109,4 +162,4 @@ These categories should not be casually mixed.
 
 ## Architecture changes
 
-A change that alters subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
+A change that alters the locked desktop stack, Electron process boundary, subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
