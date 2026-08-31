@@ -19,11 +19,15 @@ const records = new Map<string, TabRecord>();
 const persistentLegacy = new Set<HTMLElement>();
 let activePath: string | null = null;
 let normalizing = false;
+let normalizeQueued = false;
 
 const leafName = (path: string) => path.split('/').pop() ?? path;
 
 function setOnlyActive(element: HTMLElement | null): void {
-  tabBar.querySelectorAll<HTMLElement>('.tab').forEach(tab => tab.classList.toggle('active', tab === element));
+  tabBar.querySelectorAll<HTMLElement>('.tab').forEach(tab => {
+    const next = tab === element;
+    if (tab.classList.contains('active') !== next) tab.classList.toggle('active', next);
+  });
 }
 
 function legacyPath(element: HTMLElement): string | null {
@@ -31,15 +35,11 @@ function legacyPath(element: HTMLElement): string | null {
 }
 
 function rememberLegacyNativeTabs(): void {
-  tabBar.querySelectorAll<HTMLElement>('.canvas-tab, .image-viewer-tab, [data-tab-kind="base"], [data-tab-kind="image"], [data-tab-kind="canvas"]').forEach(tab => {
-    persistentLegacy.add(tab);
-  });
+  tabBar.querySelectorAll<HTMLElement>('.canvas-tab, .image-viewer-tab, [data-tab-kind="base"], [data-tab-kind="image"], [data-tab-kind="canvas"]').forEach(tab => persistentLegacy.add(tab));
 }
 
 function restoreDetachedTabs(): void {
-  for (const record of records.values()) {
-    if (!record.element.isConnected) tabBar.append(record.element);
-  }
+  for (const record of records.values()) if (!record.element.isConnected) tabBar.append(record.element);
   for (const tab of [...persistentLegacy]) {
     if (!tab.isConnected && !records.has(legacyPath(tab) ?? '')) tabBar.append(tab);
   }
@@ -56,7 +56,7 @@ function normalizeLegacyTabs(): void {
       if (tab.classList.contains('welcome-tab')) continue;
       const path = legacyPath(tab);
       if (!path) continue;
-      tab.dataset.tabPath = path;
+      if (tab.dataset.tabPath !== path) tab.dataset.tabPath = path;
       const existing = seen.get(path);
       if (existing && existing !== tab) {
         const registered = records.get(path);
@@ -80,14 +80,28 @@ function normalizeLegacyTabs(): void {
   }
 }
 
-const observer = new MutationObserver(normalizeLegacyTabs);
-observer.observe(tabBar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'title'] });
+function queueNormalize(): void {
+  if (normalizeQueued) return;
+  normalizeQueued = true;
+  queueMicrotask(() => {
+    normalizeQueued = false;
+    normalizeLegacyTabs();
+  });
+}
+
+// Only structural mutations matter here. Watching class/title attributes caused
+// the observer to wake up for every active-tab toggle and created needless churn.
+const observer = new MutationObserver(queueNormalize);
+observer.observe(tabBar, { childList: true });
 normalizeLegacyTabs();
 
 export function registerIvoryTab(registration: IvoryTabRegistration): void {
   const old = records.get(registration.path);
   if (old) {
-    Object.assign(old, registration);
+    old.label = registration.label;
+    old.kind = registration.kind;
+    old.activate = registration.activate;
+    old.close = registration.close;
     const label = old.element.querySelector<HTMLElement>('.ivory-tab-label') ?? old.element.firstElementChild as HTMLElement | null;
     if (label) label.textContent = registration.label ?? leafName(registration.path);
     old.element.dataset.tabKind = registration.kind;
@@ -122,7 +136,7 @@ export function registerIvoryTab(registration: IvoryTabRegistration): void {
 
   element.addEventListener('click', () => void activateIvoryTab(registration.path));
   records.set(registration.path, { ...registration, element });
-  normalizeLegacyTabs();
+  queueNormalize();
 }
 
 export function hasIvoryTab(path: string): boolean {
@@ -170,5 +184,5 @@ export function activeIvoryTabPath(): string | null {
 }
 
 export function syncIvoryTabs(): void {
-  normalizeLegacyTabs();
+  queueNormalize();
 }
