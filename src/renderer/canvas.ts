@@ -26,6 +26,7 @@ interface CanvasEdge {
 }
 
 interface CanvasDocument { nodes: CanvasNode[]; edges: CanvasEdge[]; }
+type ResizeDirection = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 
 const workspaceBody = document.querySelector<HTMLElement>('.workspace-body');
 const tabBar = document.querySelector<HTMLElement>('#tab-bar');
@@ -179,6 +180,71 @@ function selectNode(id: string | null): void {
   world.querySelectorAll<HTMLElement>('.canvas-node').forEach((node) => node.classList.toggle('selected', node.dataset.nodeId === id));
 }
 
+function addResizeHandles(element: HTMLElement, node: CanvasNode): void {
+  const minWidth = 120;
+  const minHeight = 80;
+  for (const direction of ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as ResizeDirection[]) {
+    const handle = document.createElement('div');
+    handle.className = `canvas-resize-handle canvas-resize-${direction}`;
+    handle.dataset.direction = direction;
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handle.setPointerCapture(event.pointerId);
+      selectNode(node.id);
+      element.classList.add('resizing');
+
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const start = { x: node.x, y: node.y, width: node.width, height: node.height };
+
+      const move = (moveEvent: PointerEvent) => {
+        const dx = (moveEvent.clientX - startX) / zoom;
+        const dy = (moveEvent.clientY - startY) / zoom;
+        let x = start.x;
+        let y = start.y;
+        let width = start.width;
+        let height = start.height;
+
+        if (direction.includes('e')) width = Math.max(minWidth, start.width + dx);
+        if (direction.includes('s')) height = Math.max(minHeight, start.height + dy);
+        if (direction.includes('w')) {
+          width = Math.max(minWidth, start.width - dx);
+          x = start.x + (start.width - width);
+        }
+        if (direction.includes('n')) {
+          height = Math.max(minHeight, start.height - dy);
+          y = start.y + (start.height - height);
+        }
+
+        node.x = x;
+        node.y = y;
+        node.width = width;
+        node.height = height;
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+        element.style.width = `${width}px`;
+        element.style.height = `${height}px`;
+        renderEdges();
+      };
+
+      const end = () => {
+        element.classList.remove('resizing');
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', end);
+        handle.removeEventListener('pointercancel', end);
+        scheduleSave();
+      };
+
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    });
+    element.append(handle);
+  }
+}
+
 function renderNode(node: CanvasNode): HTMLElement {
   const element = document.createElement('article');
   element.className = `canvas-node canvas-node-${node.type}${selectedNodeId === node.id ? ' selected' : ''}`;
@@ -213,11 +279,12 @@ function renderNode(node: CanvasNode): HTMLElement {
     const anchor = document.createElement('a'); anchor.href = node.url; anchor.textContent = node.url; anchor.target = '_blank'; body.append(anchor);
   } else body.textContent = node.label ?? '';
   element.append(body);
+  addResizeHandles(element, node);
   element.addEventListener('pointerdown', () => selectNode(node.id));
 
   let drag: { startX: number; startY: number; nodeX: number; nodeY: number } | null = null;
   dragHandle.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('button,textarea,input,a')) return;
+    if (event.button !== 0 || (event.target as HTMLElement).closest('button,textarea,input,a,.canvas-resize-handle')) return;
     event.preventDefault(); event.stopPropagation(); dragHandle.setPointerCapture(event.pointerId);
     selectNode(node.id);
     drag = { startX: event.clientX, startY: event.clientY, nodeX: node.x, nodeY: node.y };
