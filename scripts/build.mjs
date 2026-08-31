@@ -45,12 +45,25 @@ const canvas = {
   outfile: 'dist/canvas.js'
 };
 
+const canvasMarkdown = {
+  ...browserShared,
+  entryPoints: ['src/renderer/canvas-markdown.ts'],
+  outfile: 'dist/canvas-markdown.js'
+};
+
+const imageViewer = {
+  ...browserShared,
+  entryPoints: ['src/renderer/image-viewer.ts'],
+  outfile: 'dist/image-viewer.js'
+};
+
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
 await cp('src/renderer/styles.css', 'dist/styles.css');
 await cp('src/renderer/canvas.css', 'dist/canvas.css');
+await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 
-const configs = [main, preload, renderer, canvas];
+const configs = [main, preload, renderer, canvas, canvasMarkdown, imageViewer];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
