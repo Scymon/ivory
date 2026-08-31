@@ -1,5 +1,4 @@
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i;
-const NATIVE_EXPLORER_TYPES = /\.(md|canvas|png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i;
+import { isImageFile, isNativeExplorerFile } from './file-types.js';
 
 const workspaceBody = document.querySelector<HTMLElement>('.workspace-body');
 const tabBar = document.querySelector<HTMLElement>('#tab-bar');
@@ -39,14 +38,13 @@ let imageTab: HTMLButtonElement | null = null;
 let zoom = 1;
 let panX = 0;
 let panY = 0;
-let fitZoom = 1;
 
 const leafName = (path: string) => path.split('/').pop() ?? path;
 
 function promoteNativeFiles(): void {
   fileTree.querySelectorAll<HTMLButtonElement>('.tree-file.unsupported').forEach((button) => {
-    const name = button.textContent?.trim() ?? '';
-    if (NATIVE_EXPLORER_TYPES.test(name)) button.classList.remove('unsupported');
+    const path = button.dataset.path ?? button.textContent?.trim() ?? '';
+    if (isNativeExplorerFile(path)) button.classList.remove('unsupported');
   });
 }
 
@@ -61,7 +59,7 @@ async function resolveImagePathByName(name: string): Promise<string | null> {
   const walk = (entries: typeof snapshot.entries) => {
     for (const entry of entries) {
       if (entry.kind === 'folder') walk(entry.children ?? []);
-      else if (entry.name === name && IMAGE_EXTENSIONS.test(entry.path)) matches.push(entry.path);
+      else if (entry.name === name && isImageFile(entry.path)) matches.push(entry.path);
     }
   };
   walk(snapshot.entries);
@@ -117,8 +115,7 @@ function applyTransform(): void {
 function fitImage(): void {
   if (!image.naturalWidth || !image.naturalHeight) return;
   const rect = stage.getBoundingClientRect();
-  fitZoom = Math.min(1, Math.min((rect.width - 48) / image.naturalWidth, (rect.height - 48) / image.naturalHeight));
-  zoom = fitZoom;
+  zoom = Math.min(1, Math.min((rect.width - 48) / image.naturalWidth, (rect.height - 48) / image.naturalHeight));
   panX = 0;
   panY = 0;
   applyTransform();
@@ -138,7 +135,7 @@ fileTree.addEventListener('click', async (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.tree-file');
   if (!button) return;
   const name = button.textContent?.trim() ?? '';
-  if (!IMAGE_EXTENSIONS.test(name)) return;
+  if (!isImageFile(name)) return;
   event.preventDefault();
   event.stopPropagation();
   const path = await resolveImagePathByName(name);
