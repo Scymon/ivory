@@ -1,0 +1,27 @@
+{
+  "name": "ivory",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Ivory desktop knowledge environment",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@codemirror/language": "^6.11.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
+    "@lezer/highlight": "^1.2.1"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "esbuild": "^0.25.8",
+    "typescript": "^5.9.2"
+  }
+}
