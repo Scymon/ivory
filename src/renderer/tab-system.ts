@@ -16,6 +16,7 @@ const tabBar = document.querySelector<HTMLElement>('#tab-bar');
 if (!tabBar) throw new Error('Ivory tab system could not find #tab-bar.');
 
 const records = new Map<string, TabRecord>();
+const persistentLegacy = new Set<HTMLElement>();
 let activePath: string | null = null;
 let normalizing = false;
 
@@ -29,10 +30,27 @@ function legacyPath(element: HTMLElement): string | null {
   return element.dataset.tabPath || element.getAttribute('title') || null;
 }
 
+function rememberLegacyNativeTabs(): void {
+  tabBar.querySelectorAll<HTMLElement>('.canvas-tab, .image-viewer-tab, [data-tab-kind="base"], [data-tab-kind="image"], [data-tab-kind="canvas"]').forEach(tab => {
+    persistentLegacy.add(tab);
+  });
+}
+
+function restoreDetachedTabs(): void {
+  for (const record of records.values()) {
+    if (!record.element.isConnected) tabBar.append(record.element);
+  }
+  for (const tab of [...persistentLegacy]) {
+    if (!tab.isConnected && !records.has(legacyPath(tab) ?? '')) tabBar.append(tab);
+  }
+}
+
 function normalizeLegacyTabs(): void {
   if (normalizing) return;
   normalizing = true;
   try {
+    rememberLegacyNativeTabs();
+    restoreDetachedTabs();
     const seen = new Map<string, HTMLElement>();
     for (const tab of [...tabBar.querySelectorAll<HTMLElement>('.tab')]) {
       if (tab.classList.contains('welcome-tab')) continue;
@@ -41,12 +59,17 @@ function normalizeLegacyTabs(): void {
       tab.dataset.tabPath = path;
       const existing = seen.get(path);
       if (existing && existing !== tab) {
-        if (tab.classList.contains('active')) existing.classList.add('active');
-        tab.remove();
+        const registered = records.get(path);
+        const keep = registered?.element ?? existing;
+        const discard = keep === existing ? tab : existing;
+        if (discard.classList.contains('active')) keep.classList.add('active');
+        discard.remove();
+        seen.set(path, keep);
         continue;
       }
       seen.set(path, tab);
     }
+    restoreDetachedTabs();
     const active = tabBar.querySelector<HTMLElement>('.tab.active:not(.welcome-tab)');
     if (active) {
       activePath = legacyPath(active);
@@ -65,7 +88,9 @@ export function registerIvoryTab(registration: IvoryTabRegistration): void {
   const old = records.get(registration.path);
   if (old) {
     Object.assign(old, registration);
-    old.element.querySelector<HTMLElement>('.ivory-tab-label')!.textContent = registration.label ?? leafName(registration.path);
+    const label = old.element.querySelector<HTMLElement>('.ivory-tab-label') ?? old.element.firstElementChild as HTMLElement | null;
+    if (label) label.textContent = registration.label ?? leafName(registration.path);
+    old.element.dataset.tabKind = registration.kind;
     return;
   }
 
@@ -92,6 +117,7 @@ export function registerIvoryTab(registration: IvoryTabRegistration): void {
   } else {
     const first = element.firstElementChild as HTMLElement | null;
     if (first) first.classList.add('ivory-tab-label');
+    persistentLegacy.delete(element);
   }
 
   element.addEventListener('click', () => void activateIvoryTab(registration.path));
@@ -121,6 +147,7 @@ export async function closeIvoryTab(path: string): Promise<void> {
   if (!record) return;
   const wasActive = activePath === path;
   if (record.close) await record.close();
+  persistentLegacy.delete(record.element);
   record.element.remove();
   records.delete(path);
   if (!wasActive) return;
