@@ -14,11 +14,49 @@ Ivory Desktop uses:
 
 - **Electron** as the desktop application shell;
 - **Chromium** as the renderer/runtime environment;
-- **TypeScript** as the primary application and plugin/API language.
+- **TypeScript** as the primary application and plugin/API language;
+- **CodeMirror 6** as the Markdown editor engine.
 
-This is a deliberate architectural choice, not a placeholder. It keeps Ivory in a JavaScript/DOM environment that is well suited to the V0 desktop-parity goal and the later Obsidian plugin compatibility layer.
+These are deliberate architectural choices, not placeholders. Electron/Chromium/TypeScript keep Ivory in a JavaScript/DOM environment suited to the V0 desktop-parity goal and later Obsidian plugin compatibility. CodeMirror 6 provides the editor substrate on which Ivory will independently implement its Markdown authoring behavior, including Source-style editing, Live Preview-style editing, editor extensions, and interactive Markdown features.
 
-A future change away from Electron/Chromium/TypeScript is an architecture change and must be explicitly documented rather than introduced incrementally.
+A future change away from this locked stack is an architecture change and must be explicitly documented rather than introduced incrementally.
+
+## Editor boundary
+
+CodeMirror 6 is an implementation engine, not Ivory's public editor contract.
+
+Ivory should expose its own editor abstractions so that Core, workspace behavior, native plugins, and compatibility adapters do not casually depend on private CodeMirror implementation details.
+
+```text
+Markdown file
+     |
+Ivory Editor API
+     |
+Ivory Markdown behavior
+     |
+CodeMirror 6
+```
+
+The Ivory Markdown layer may use CodeMirror extensions for syntax parsing, decorations, widgets, selections, transactions, keymaps, and other editing behavior.
+
+V0 editor work includes the independently implemented behavior needed for the pinned Obsidian parity target, such as:
+
+- Markdown source editing;
+- Live Preview-style editing;
+- Reading/rendered view integration;
+- selection-aware syntax presentation;
+- wikilinks and internal links;
+- embeds;
+- callouts;
+- Properties/frontmatter interaction;
+- Markdown tables;
+- task/checkbox interaction;
+- code and code blocks;
+- math;
+- images/media and relevant interactions;
+- editor extension points required by Ivory-native plugins and supported compatibility behavior.
+
+Obsidian compatibility adapters may translate expected editor-facing behavior into Ivory's editor APIs and CodeMirror-backed capabilities, but Obsidian-shaped editor contracts must remain outside Ivory Core.
 
 ## Electron process boundary
 
@@ -41,7 +79,7 @@ Electron Main Process
 Chromium Renderer
 |
 +-- Ivory UI / Workspace
-+-- Editor
++-- CodeMirror-backed Editor
 +-- Canvas
 +-- Bases
 +-- Graph
@@ -89,7 +127,9 @@ Ivory Desktop Application (Electron)
 |   +-- file watching
 |
 +-- Editor
-|   +-- Markdown editing
+|   +-- Ivory Editor API
+|   +-- Markdown behavior
+|   +-- CodeMirror 6 engine
 |   +-- rendered views
 |   +-- editor extensions
 |
@@ -121,7 +161,7 @@ Core knowledge does not depend on whether a resource is displayed in a tab, pane
 
 ### Editor owns editing behavior
 
-The knowledge model must not depend on one particular editor implementation.
+CodeMirror 6 powers editing, but the knowledge model must not depend directly on CodeMirror internals. Ivory owns the editor behavior and public editor contract.
 
 ### Plugin APIs own extension boundaries
 
@@ -142,7 +182,7 @@ Compatibility Adapter
       |
 Ivory Public Interfaces
       |
-Ivory Core / Workspace / Storage
+Ivory Core / Workspace / Storage / Editor
 ```
 
 The reverse direction is forbidden. Ivory Core must not import or require the Obsidian compatibility layer.
@@ -162,4 +202,4 @@ These categories should not be casually mixed.
 
 ## Architecture changes
 
-A change that alters the locked desktop stack, Electron process boundary, subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
+A change that alters the locked application/editor stack, Electron process boundary, subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
