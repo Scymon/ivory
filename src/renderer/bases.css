@@ -31,8 +31,13 @@
 .bases-modal { width: min(380px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--background-secondary); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
 .bases-modal-title { font-size: 13px; font-weight: 600; color: var(--text-normal); }
 .bases-modal-description { font-size: 11px; line-height: 1.4; color: var(--text-faint); }
-.bases-modal-input { width: 100%; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: var(--background-primary); color: var(--text-normal); font: inherit; }
-.bases-modal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(183,166,232,.12); }
+.bases-modal-field { min-width: 0; }
+.bases-modal-input,.bases-modal-select { width: 100%; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: var(--background-primary); color: var(--text-normal); font: inherit; }
+.bases-modal-input:focus,.bases-modal-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(183,166,232,.12); }
 .bases-modal-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 2px; }
 .bases-modal-actions button { height: 28px; padding: 0 10px; border-radius: 5px; background: var(--background-modifier); color: var(--text-normal); cursor: pointer; font-size: 12px; }
 .bases-modal-confirm { background: var(--accent) !important; color: #151515 !important; }
+.bases-popover { position: fixed; z-index: 1100; min-width: 150px; padding: 5px; border: 1px solid var(--border); border-radius: 7px; background: var(--background-secondary); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.bases-popover-item { width: 100%; height: 28px; padding: 0 9px; border-radius: 4px; background: transparent; color: var(--text-normal); text-align: left; cursor: pointer; font-size: 12px; }
+.bases-popover-item:hover { background: var(--background-modifier); }
+.bases-popover-item.danger { color: #e16b6b; }
