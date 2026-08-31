@@ -63,6 +63,37 @@ const searchResults = $('#search-results');
 
 const leafName = (path: string) => path.split('/').pop() ?? path;
 
+function flattenFiles(entries: VaultEntry[]): string[] {
+  const result: string[] = [];
+  for (const entry of entries) entry.kind === 'folder' ? result.push(...flattenFiles(entry.children ?? [])) : result.push(entry.path);
+  return result;
+}
+
+function resolveVaultResource(target: string, sourcePath = activeFile ?? ''): string | null {
+  if (!snapshot) return null;
+  const clean = target.split('#')[0].replace(/\\/g, '/').replace(/^\.\//, '');
+  const files = flattenFiles(snapshot.entries);
+  const sourceFolder = sourcePath.includes('/') ? sourcePath.slice(0, sourcePath.lastIndexOf('/')) : '';
+  const relativeCandidate = sourceFolder ? `${sourceFolder}/${clean}` : clean;
+  const normalized = clean.toLocaleLowerCase();
+  const relativeNormalized = relativeCandidate.toLocaleLowerCase();
+  return files.find((file) => file.toLocaleLowerCase() === relativeNormalized)
+    ?? files.find((file) => file.toLocaleLowerCase() === normalized)
+    ?? files.find((file) => leafName(file).toLocaleLowerCase() === leafName(clean).toLocaleLowerCase())
+    ?? null;
+}
+
+async function resolveAsset(target: string, sourcePath = activeFile ?? ''): Promise<string | null> {
+  const path = resolveVaultResource(target, sourcePath);
+  return path ? window.ivory.getAssetUrl(path) : null;
+}
+
+async function readEmbeddedNote(target: string): Promise<string | null> {
+  const resolved = resolveWikiLink(target, noteIndex) ?? resolveVaultResource(target.toLowerCase().endsWith('.md') ? target : `${target}.md`);
+  if (!resolved || !resolved.toLowerCase().endsWith('.md')) return null;
+  try { return await window.ivory.readTextFile(resolved); } catch { return null; }
+}
+
 function renderTree(entries: VaultEntry[], container: Element): void {
   container.replaceChildren();
   for (const entry of entries) {
@@ -134,7 +165,11 @@ function openWikiTarget(target: string): void {
 
 function renderEditor(tab: OpenTab): void {
   const extensions = [history(), markdown(), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping];
-  if (tab.mode === 'live') extensions.push(ivoryLivePreview({ openWikiLink: openWikiTarget }));
+  if (tab.mode === 'live') extensions.push(ivoryLivePreview({
+    openWikiLink: openWikiTarget,
+    resolveAsset: (target) => resolveAsset(target, tab.path),
+    readNote: readEmbeddedNote
+  }));
   extensions.push(EditorView.updateListener.of((update) => {
     if (!update.docChanged) return; tab.content = update.state.doc.toString(); statusLeft.textContent = 'Editing…'; renderInspector(tab.content);
     if (saveTimer !== null) window.clearTimeout(saveTimer); const path = tab.path;
@@ -144,11 +179,44 @@ function renderEditor(tab: OpenTab): void {
   editor = new EditorView({ parent: editorHost, state: EditorState.create({ doc: tab.content, extensions }) });
 }
 
+async function hydrateEmbed(host: HTMLElement, target: string, sourcePath: string): Promise<void> {
+  const note = await readEmbeddedNote(target);
+  if (note !== null) {
+    const body = note.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/, '');
+    host.classList.add('reading-note-embed');
+    host.innerHTML = DOMPurify.sanitize(await marked.parse(body, { gfm: true }));
+    return;
+  }
+  const url = await resolveAsset(target, sourcePath); host.replaceChildren();
+  if (!url) { host.textContent = `Missing embed: ${target}`; host.classList.add('reading-embed-missing'); return; }
+  const lower = target.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|svg|avif)$/i.test(lower)) { const image = document.createElement('img'); image.src = url; image.alt = target; host.append(image); return; }
+  if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(lower)) { const audio = document.createElement('audio'); audio.src = url; audio.controls = true; host.append(audio); return; }
+  if (/\.(mp4|webm|mov|m4v)$/i.test(lower)) { const video = document.createElement('video'); video.src = url; video.controls = true; host.append(video); return; }
+  if (/\.pdf$/i.test(lower)) { const frame = document.createElement('iframe'); frame.src = url; host.append(frame); return; }
+  const link = document.createElement('a'); link.href = url; link.textContent = target; host.append(link);
+}
+
 async function renderReading(tab: OpenTab): Promise<void> {
-  const source = tab.content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/, '');
-  const withLinks = source.replace(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g, (_m, target: string, label?: string) => `[${label || target}](ivory://${encodeURIComponent(target.trim())})`);
-  readingHost.innerHTML = DOMPurify.sanitize(await marked.parse(withLinks, { gfm: true }));
+  let source = tab.content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/, '');
+  source = source.replace(/!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, (_m, target: string) => `<div class="reading-embed" data-ivory-embed="${encodeURIComponent(target.trim())}"></div>`);
+  source = source.replace(/(?<!!)\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g, (_m, target: string, label?: string) => `[${label || target}](ivory://${encodeURIComponent(target.trim())})`);
+  readingHost.innerHTML = DOMPurify.sanitize(await marked.parse(source, { gfm: true }), { ADD_ATTR: ['data-ivory-embed'] });
+
   readingHost.querySelectorAll<HTMLAnchorElement>('a[href^="ivory://"]').forEach((anchor) => anchor.addEventListener('click', (event) => { event.preventDefault(); openWikiTarget(decodeURIComponent(anchor.getAttribute('href')!.slice(8))); }));
+  await Promise.all([...readingHost.querySelectorAll<HTMLElement>('[data-ivory-embed]')].map((host) => hydrateEmbed(host, decodeURIComponent(host.dataset.ivoryEmbed ?? ''), tab.path)));
+  await Promise.all([...readingHost.querySelectorAll<HTMLImageElement>('img')].map(async (image) => {
+    const src = image.getAttribute('src') ?? '';
+    if (!src || /^(https?:|data:|file:)/i.test(src)) return;
+    const url = await resolveAsset(decodeURIComponent(src), tab.path); if (url) image.src = url;
+  }));
+
+  readingHost.querySelectorAll('blockquote').forEach((quote) => {
+    const first = quote.querySelector('p'); if (!first) return;
+    const match = first.textContent?.match(/^\[!([\w-]+)\][+-]?\s*(.*)$/i); if (!match) return;
+    quote.classList.add('reading-callout', `reading-callout-${match[1].toLowerCase()}`);
+    first.classList.add('reading-callout-title'); first.textContent = match[2] || match[1][0].toUpperCase() + match[1].slice(1);
+  });
 }
 
 async function updateProperty(key: string, raw: string, previous: unknown): Promise<void> {
