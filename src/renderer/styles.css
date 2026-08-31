@@ -87,14 +87,31 @@ button { border: 0; }
 .right-tab { height: 30px; padding: 0 9px; border-radius: 5px; background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; }
 .right-tab:hover, .right-tab.active { background: var(--background-modifier); color: var(--text-normal); }
 .right-panel { height: calc(100% - 42px); overflow: auto; padding: 10px; }
-.property-row { display: grid; grid-template-columns: minmax(75px, .8fr) minmax(0, 1.2fr); gap: 8px; padding: 7px 5px; border-bottom: 1px solid #282828; font-size: 12px; }
+.property-row { display: grid; grid-template-columns: minmax(75px, .8fr) minmax(0, 1.2fr); gap: 8px; padding: 5px; border-bottom: 1px solid #282828; font-size: 12px; align-items: center; }
 .property-name { color: var(--text-muted); overflow-wrap: anywhere; }
 .property-value { color: var(--text-normal); overflow-wrap: anywhere; }
+.property-input { width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; padding: 5px 6px; outline: none; }
+.property-input:hover { background: var(--background-modifier); }
+.property-input:focus { background: #242424; border-color: #5b526f; }
+.property-add { width: 100%; margin-top: 8px; padding: 6px 7px; border-radius: 5px; background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; }
+.property-add:hover { background: var(--background-modifier); color: var(--text-normal); }
 .right-panel h3 { margin: 10px 5px 6px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .link-item { width: 100%; padding: 6px 7px; border-radius: 5px; background: transparent; color: var(--accent); text-align: left; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-item:hover { background: var(--background-modifier); }
 .cm-editor { background: var(--background-primary); color: var(--text-normal); font-size: 16px; line-height: 1.65; }
 .cm-editor .cm-cursor { border-left-color: var(--text-normal); }
 .cm-editor .cm-selectionBackground, .cm-editor.cm-focused .cm-selectionBackground { background: rgba(183, 166, 232, .22); }
+.cm-ivory-wikilink { color: var(--accent); text-decoration: none; cursor: pointer; }
+.cm-ivory-wikilink:hover { text-decoration: underline; }
+.cm-ivory-strong { font-weight: 700; }
+.cm-ivory-em { font-style: italic; }
+.cm-ivory-heading-marker { color: var(--text-faint); }
+.cm-ivory-heading { font-weight: 700; line-height: 1.35; }
+.cm-ivory-heading-1 { font-size: 2em; }
+.cm-ivory-heading-2 { font-size: 1.55em; }
+.cm-ivory-heading-3 { font-size: 1.3em; }
+.cm-ivory-heading-4 { font-size: 1.15em; }
+.cm-ivory-heading-5 { font-size: 1.05em; }
+.cm-ivory-heading-6 { font-size: 1em; color: var(--text-muted); }
 @media (max-width: 1150px) { .ivory-shell { grid-template-columns: 44px 220px minmax(0, 1fr); } .right-sidebar { display: none; } }
 @media (max-width: 800px) { .ivory-shell { grid-template-columns: 44px 190px minmax(0, 1fr); } }
