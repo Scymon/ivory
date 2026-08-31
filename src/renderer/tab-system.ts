@@ -125,6 +125,10 @@ export function registerIvoryTab(registration: IvoryTabRegistration): void {
   normalizeLegacyTabs();
 }
 
+export function hasIvoryTab(path: string): boolean {
+  return records.has(path);
+}
+
 export async function activateIvoryTab(path: string): Promise<void> {
   const record = records.get(path);
   if (!record) {
