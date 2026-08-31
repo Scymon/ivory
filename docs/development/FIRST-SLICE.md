@@ -1,8 +1,8 @@
-# First Runnable Slice
+# Ivory Runnable Slices
 
-The first implementation slice exists to prove the locked architecture with the smallest useful end-to-end workflow.
+Implementation proceeds through complete vertical workflows rather than disconnected mock surfaces.
 
-## Current slice
+## Slice 1 — local Markdown editor
 
 ```text
 Electron window
@@ -14,26 +14,35 @@ Electron window
     -> debounce-save Markdown back to disk
 ```
 
-## What this proves
+This proved the locked Electron/Chromium/TypeScript/DOM/CodeMirror architecture.
 
-- Electron main/renderer separation.
-- Chromium + vanilla TypeScript/DOM/CSS renderer.
-- Narrow preload bridge rather than renderer Node access.
-- Local vault access without converting user files.
-- Markdown as the persisted source.
-- CodeMirror 6 as the editor engine.
+## Slice 2 — working knowledge workspace
 
-## Intentionally not implemented yet
+The second slice extends that foundation with:
 
-This is not an Obsidian-parity claim. It does not yet include Live Preview behavior, Reading View, Properties, links/backlinks, metadata indexing, tabs/splits, search, graph, Canvas, Bases, command palette, themes, plugins, file watching, full filesystem operations, or the rest of V0.
+- a watched local vault using filesystem change events;
+- create note, create folder, rename/move, and delete operations;
+- multiple open note tabs;
+- Source and basic Reading views;
+- YAML/frontmatter parsing and a Properties inspector;
+- wikilink parsing;
+- outgoing-link and backlink inspection;
+- tag extraction;
+- vault-wide text search;
+- Markdown metadata indexing;
+- clickable resolved wikilinks in Reading view;
+- UI refresh when vault resources change externally.
+
+This is still not an Obsidian-parity claim. The Reading view is intentionally basic, Properties are currently inspectable rather than fully editable through the property UI, and metadata/index/search behavior is an early native implementation.
 
 ## Next implementation pressure
 
-The next work should strengthen this vertical slice rather than jump randomly across V0:
+Strengthen the editor and metadata model before moving into the large spatial/database systems:
 
-1. establish a real vault/storage service with file watching and resource events;
-2. add create/rename/move/delete and attachment handling;
-3. establish the Ivory Editor API around CodeMirror;
-4. implement Markdown rendering and then Live Preview behavior;
-5. build metadata indexing for frontmatter, links, headings, blocks, and tags;
-6. let Properties and knowledge navigation emerge from that metadata layer.
+1. establish a formal Ivory Editor API around CodeMirror;
+2. implement Live Preview-style Markdown behavior rather than Source/Reading only;
+3. make Properties editable and preserve frontmatter safely;
+4. implement robust link resolution, heading/block references, embeds, rename-link updates, and unlinked mentions;
+5. add command registry, command palette, hotkeys, quick switcher, history, outline, and bookmarks;
+6. add workspace splits/panes and persisted layouts;
+7. then build Graph, Canvas, and Bases against the same metadata/query substrate.
