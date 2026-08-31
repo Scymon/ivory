@@ -1,4 +1,4 @@
-import { EditorState } from '@codemirror/state';
+import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
@@ -25,240 +25,48 @@ const noteIndex = new Map<string, NoteMetadata>();
 
 app.innerHTML = `
 <main class="ivory-shell">
-  <aside class="ribbon">
-    <div class="mark">I</div>
-    <button id="open-vault" class="icon-button" title="Open vault">⌂</button>
-    <button id="toggle-search" class="icon-button" title="Search">⌕</button>
-    <div class="ribbon-spacer"></div><button class="icon-button" disabled>⚙</button>
-  </aside>
-  <section class="sidebar">
-    <header class="sidebar-header"><strong id="vault-name">No vault</strong><div class="header-actions">
-      <button id="new-note" class="mini-button" title="New note">＋</button><button id="new-folder" class="mini-button" title="New folder">▱</button><button id="open-vault-secondary" class="text-button">Open</button>
-    </div></header>
-    <section id="search-panel" class="search-panel hidden"><input id="search-input" class="search-input" placeholder="Search vault…"><div id="search-results" class="search-results"></div></section>
-    <div id="file-tree" class="file-tree"><div class="empty-state">Open a local vault to begin.</div></div>
-  </section>
-  <section class="workspace">
-    <header id="tab-bar" class="tab-bar"><div class="tab active welcome-tab">Welcome</div></header>
-    <div class="workspace-body"><div id="welcome" class="welcome"><div class="welcome-mark">IVORY</div><h1>Your knowledge, locally.</h1><p>Open a vault, choose a Markdown file, and start writing.</p><button id="welcome-open" class="primary-button">Open vault</button></div><div id="editor-host" class="editor-host hidden"></div><article id="reading-host" class="reading-host hidden"></article></div>
-    <footer class="status-bar"><span id="status-left">Ready</span><span id="status-right">Markdown</span></footer>
-  </section>
+  <aside class="ribbon"><div class="mark">I</div><button id="open-vault" class="icon-button" title="Open vault">⌂</button><button id="toggle-search" class="icon-button" title="Search">⌕</button><div class="ribbon-spacer"></div><button class="icon-button" disabled>⚙</button></aside>
+  <section class="sidebar"><header class="sidebar-header"><strong id="vault-name">No vault</strong><div class="header-actions"><button id="new-note" class="mini-button" title="New note">＋</button><button id="new-folder" class="mini-button" title="New folder">▱</button><button id="open-vault-secondary" class="text-button">Open</button></div></header><section id="search-panel" class="search-panel hidden"><input id="search-input" class="search-input" placeholder="Search vault…"><div id="search-results" class="search-results"></div></section><div id="file-tree" class="file-tree"><div class="empty-state">Open a local vault to begin.</div></div></section>
+  <section class="workspace"><header id="tab-bar" class="tab-bar"><div class="tab active welcome-tab">Welcome</div></header><div class="workspace-body"><div id="welcome" class="welcome"><div class="welcome-mark">IVORY</div><h1>Your knowledge, locally.</h1><p>Open a vault, choose a Markdown file, and start writing.</p><button id="welcome-open" class="primary-button">Open vault</button></div><div id="editor-host" class="editor-host hidden"></div><article id="reading-host" class="reading-host hidden"></article></div><footer class="status-bar"><span id="status-left">Ready</span><span id="status-right">Markdown</span></footer></section>
   <aside class="right-sidebar"><header class="right-header"><button class="right-tab active" data-panel="properties">Properties</button><button class="right-tab" data-panel="links">Links</button></header><div id="properties-panel" class="right-panel"></div><div id="links-panel" class="right-panel hidden"></div></aside>
 </main>`;
 
 const $ = <T extends Element>(selector: string) => document.querySelector<T>(selector)!;
-const vaultName = $('#vault-name');
-const fileTree = $('#file-tree');
-const tabBar = $('#tab-bar');
-const welcome = $('#welcome');
-const editorHost = $('#editor-host');
-const readingHost = $('#reading-host');
-const statusLeft = $('#status-left');
-const statusRight = $('#status-right');
-const propertiesPanel = $('#properties-panel');
-const linksPanel = $('#links-panel');
-const searchPanel = $('#search-panel');
-const searchInput = $<HTMLInputElement>('#search-input');
-const searchResults = $('#search-results');
-
+const vaultName = $('#vault-name'); const fileTree = $('#file-tree'); const tabBar = $('#tab-bar'); const welcome = $('#welcome'); const editorHost = $('#editor-host'); const readingHost = $('#reading-host'); const statusLeft = $('#status-left'); const statusRight = $('#status-right'); const propertiesPanel = $('#properties-panel'); const linksPanel = $('#links-panel'); const searchPanel = $('#search-panel'); const searchInput = $<HTMLInputElement>('#search-input'); const searchResults = $('#search-results');
 const leafName = (path: string) => path.split('/').pop() ?? path;
 
-function flattenFiles(entries: VaultEntry[]): string[] {
-  const result: string[] = [];
-  for (const entry of entries) entry.kind === 'folder' ? result.push(...flattenFiles(entry.children ?? [])) : result.push(entry.path);
-  return result;
-}
+function flattenFiles(entries: VaultEntry[]): string[] { const result:string[]=[]; for(const entry of entries) entry.kind==='folder'?result.push(...flattenFiles(entry.children??[])):result.push(entry.path); return result; }
+function resolveVaultResource(target:string,sourcePath=activeFile??''):string|null { if(!snapshot)return null; const clean=target.split('#')[0].replace(/\\/g,'/').replace(/^\.\//,''); const files=flattenFiles(snapshot.entries); const sourceFolder=sourcePath.includes('/')?sourcePath.slice(0,sourcePath.lastIndexOf('/')):''; const relativeCandidate=sourceFolder?`${sourceFolder}/${clean}`:clean; const normalized=clean.toLocaleLowerCase(); const relativeNormalized=relativeCandidate.toLocaleLowerCase(); return files.find(file=>file.toLocaleLowerCase()===relativeNormalized)??files.find(file=>file.toLocaleLowerCase()===normalized)??files.find(file=>leafName(file).toLocaleLowerCase()===leafName(clean).toLocaleLowerCase())??null; }
+async function resolveAsset(target:string,sourcePath=activeFile??''):Promise<string|null>{const resolved=resolveVaultResource(target,sourcePath);return resolved?window.ivory.getAssetUrl(resolved):null;}
+async function readEmbeddedNote(target:string):Promise<string|null>{const resolved=resolveWikiLink(target,noteIndex)??resolveVaultResource(target.toLowerCase().endsWith('.md')?target:`${target}.md`);if(!resolved||!resolved.toLowerCase().endsWith('.md'))return null;try{return await window.ivory.readTextFile(resolved);}catch{return null;}}
 
-function resolveVaultResource(target: string, sourcePath = activeFile ?? ''): string | null {
-  if (!snapshot) return null;
-  const clean = target.split('#')[0].replace(/\\/g, '/').replace(/^\.\//, '');
-  const files = flattenFiles(snapshot.entries);
-  const sourceFolder = sourcePath.includes('/') ? sourcePath.slice(0, sourcePath.lastIndexOf('/')) : '';
-  const relativeCandidate = sourceFolder ? `${sourceFolder}/${clean}` : clean;
-  const normalized = clean.toLocaleLowerCase();
-  const relativeNormalized = relativeCandidate.toLocaleLowerCase();
-  return files.find((file) => file.toLocaleLowerCase() === relativeNormalized)
-    ?? files.find((file) => file.toLocaleLowerCase() === normalized)
-    ?? files.find((file) => leafName(file).toLocaleLowerCase() === leafName(clean).toLocaleLowerCase())
-    ?? null;
-}
+function renderTree(entries:VaultEntry[],container:Element):void{container.replaceChildren();for(const entry of entries){if(entry.kind==='folder'){const details=document.createElement('details');details.className='tree-folder';details.open=!entry.path.startsWith('.');const summary=document.createElement('summary');summary.textContent=entry.name;summary.addEventListener('contextmenu',event=>void resourceMenu(event,entry));details.append(summary);const children=document.createElement('div');children.className='tree-children';renderTree(entry.children??[],children);details.append(children);container.append(details);continue;}const button=document.createElement('button');button.className=`tree-file${entry.path===activeFile?' selected':''}`;button.textContent=entry.name;if(entry.name.toLowerCase().endsWith('.md'))button.addEventListener('click',()=>void openMarkdown(entry.path));else button.classList.add('unsupported');button.addEventListener('contextmenu',event=>void resourceMenu(event,entry));container.append(button);}}
+async function resourceMenu(event:MouseEvent,entry:VaultEntry):Promise<void>{event.preventDefault();const action=window.prompt(`Resource: ${entry.path}\nType R to rename or D to delete.`)?.trim().toLowerCase();if(action==='r'){const next=window.prompt('Rename/move to:',entry.path)?.trim();if(next&&next!==entry.path)await window.ivory.renameResource(entry.path,next);}if(action==='d'&&window.confirm(`Delete ${entry.path}?`)){await window.ivory.deleteResource(entry.path);if(tabs.has(entry.path))closeTab(entry.path);}}
+async function setSnapshot(next:VaultSnapshot):Promise<void>{snapshot=next;vaultName.textContent=next.name;renderTree(next.entries,fileTree);await rebuildIndex();}
+async function refreshVault():Promise<void>{const next=await window.ivory.getVaultSnapshot();if(next)await setSnapshot(next);}
+async function rebuildIndex():Promise<void>{if(!snapshot)return;noteIndex.clear();await Promise.all(flattenMarkdown(snapshot.entries).map(async path=>{try{noteIndex.set(path,parseNote(path,await window.ivory.readTextFile(path)));}catch{}}));renderInspector();}
+async function chooseVault():Promise<void>{statusLeft.textContent='Opening vault…';const result=await window.ivory.chooseVault();if(!result)return;tabs.clear();activeFile=null;await setSnapshot(result);renderTabs();showWelcome();statusLeft.textContent=result.root;}
+function renderTabs():void{tabBar.replaceChildren();if(!tabs.size){const node=document.createElement('div');node.className='tab active welcome-tab';node.textContent='Welcome';tabBar.append(node);return;}for(const tab of tabs.values()){const node=document.createElement('button');node.className=`tab${tab.path===activeFile?' active':''}`;node.title=tab.path;const label=document.createElement('span');label.textContent=leafName(tab.path);const close=document.createElement('span');close.className='tab-close';close.textContent='×';close.addEventListener('click',event=>{event.stopPropagation();closeTab(tab.path);});node.append(label,close);node.addEventListener('click',()=>void activateTab(tab.path));tabBar.append(node);}}
+function closeTab(path:string):void{tabs.delete(path);if(activeFile===path){activeFile=null;const next=[...tabs.keys()].at(-1);if(next)void activateTab(next);else showWelcome();}renderTabs();}
+async function openMarkdown(path:string):Promise<void>{if(!tabs.has(path))tabs.set(path,{path,content:await window.ivory.readTextFile(path),mode:'live'});await activateTab(path);}
+async function activateTab(path:string):Promise<void>{const tab=tabs.get(path);if(!tab)return;activeFile=path;welcome.classList.add('hidden');renderTabs();if(snapshot)renderTree(snapshot.entries,fileTree);await showTab(tab);renderInspector();}
 
-async function resolveAsset(target: string, sourcePath = activeFile ?? ''): Promise<string | null> {
-  const path = resolveVaultResource(target, sourcePath);
-  return path ? window.ivory.getAssetUrl(path) : null;
-}
+async function showTab(tab:OpenTab):Promise<void>{editor?.destroy();editor=null;editorHost.replaceChildren();readingHost.replaceChildren();try{if(tab.mode==='reading'){editorHost.classList.add('hidden');readingHost.classList.remove('hidden');await renderReading(tab);}else{readingHost.classList.add('hidden');editorHost.classList.remove('hidden');renderEditor(tab);}renderModeControls(tab);}catch(error){console.error('Ivory view failed',error);tab.mode='source';readingHost.classList.add('hidden');editorHost.classList.remove('hidden');editorHost.replaceChildren();renderEditor(tab,true);renderModeControls(tab);statusLeft.textContent='Live Preview failed — showing Source mode';}}
+function renderModeControls(tab:OpenTab):void{statusRight.replaceChildren();for(const mode of ['live','source','reading'] as ViewMode[]){const button=document.createElement('button');button.className=`status-button${tab.mode===mode?' active':''}`;button.textContent=mode==='live'?'Live Preview':mode[0].toUpperCase()+mode.slice(1);button.addEventListener('click',async()=>{if(editor)tab.content=editor.state.doc.toString();tab.mode=mode;await showTab(tab);});statusRight.append(button);}}
+function openWikiTarget(target:string):void{const resolved=resolveWikiLink(target,noteIndex);if(resolved)void openMarkdown(resolved);else statusLeft.textContent=`Unresolved link: ${target}`;}
 
-async function readEmbeddedNote(target: string): Promise<string | null> {
-  const resolved = resolveWikiLink(target, noteIndex) ?? resolveVaultResource(target.toLowerCase().endsWith('.md') ? target : `${target}.md`);
-  if (!resolved || !resolved.toLowerCase().endsWith('.md')) return null;
-  try { return await window.ivory.readTextFile(resolved); } catch { return null; }
-}
+function baseEditorExtensions(tab:OpenTab):Extension[]{const extensions:Extension[]=[history(),markdown(),keymap.of([...defaultKeymap,...historyKeymap]),EditorView.lineWrapping];extensions.push(EditorView.updateListener.of(update=>{if(!update.docChanged)return;tab.content=update.state.doc.toString();statusLeft.textContent='Editing…';renderInspector(tab.content);if(saveTimer!==null)window.clearTimeout(saveTimer);const path=tab.path;saveTimer=window.setTimeout(async()=>{await window.ivory.writeTextFile(path,tab.content);noteIndex.set(path,parseNote(path,tab.content));statusLeft.textContent='Saved';},400);}));extensions.push(EditorView.theme({'&':{height:'100%'},'.cm-scroller':{overflow:'auto',fontFamily:'var(--font-text)'},'.cm-content':{maxWidth:'850px',margin:'0 auto',padding:'48px 56px 30vh'},'.cm-gutters':{display:'none'},'.cm-activeLine':{background:'transparent'},'&.cm-focused':{outline:'none'}}));return extensions;}
+function renderEditor(tab:OpenTab,forceSource=false):void{const extensions=baseEditorExtensions(tab);if(!forceSource&&tab.mode==='live')extensions.splice(4,0,ivoryLivePreview({openWikiLink:openWikiTarget,resolveAsset:target=>resolveAsset(target,tab.path),readNote:readEmbeddedNote}));editor=new EditorView({parent:editorHost,state:EditorState.create({doc:tab.content,extensions})});}
 
-function renderTree(entries: VaultEntry[], container: Element): void {
-  container.replaceChildren();
-  for (const entry of entries) {
-    if (entry.kind === 'folder') {
-      const details = document.createElement('details'); details.className = 'tree-folder'; details.open = !entry.path.startsWith('.');
-      const summary = document.createElement('summary'); summary.textContent = entry.name; summary.addEventListener('contextmenu', (event) => void resourceMenu(event, entry)); details.append(summary);
-      const children = document.createElement('div'); children.className = 'tree-children'; renderTree(entry.children ?? [], children); details.append(children); container.append(details); continue;
-    }
-    const button = document.createElement('button'); button.className = `tree-file${entry.path === activeFile ? ' selected' : ''}`; button.textContent = entry.name;
-    if (entry.name.toLowerCase().endsWith('.md')) button.addEventListener('click', () => void openMarkdown(entry.path)); else button.classList.add('unsupported');
-    button.addEventListener('contextmenu', (event) => void resourceMenu(event, entry)); container.append(button);
-  }
-}
+async function hydrateEmbed(host:HTMLElement,target:string,sourcePath:string):Promise<void>{const note=await readEmbeddedNote(target);if(note!==null){const body=note.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/,'');host.classList.add('reading-note-embed');host.innerHTML=DOMPurify.sanitize(await marked.parse(body,{gfm:true}));return;}const url=await resolveAsset(target,sourcePath);host.replaceChildren();if(!url){host.textContent=`Missing embed: ${target}`;host.classList.add('reading-embed-missing');return;}const lower=target.toLowerCase();if(/\.(png|jpe?g|gif|webp|svg|avif)$/i.test(lower)){const image=document.createElement('img');image.src=url;image.alt=target;host.append(image);return;}if(/\.(mp3|wav|ogg|m4a|flac)$/i.test(lower)){const audio=document.createElement('audio');audio.src=url;audio.controls=true;host.append(audio);return;}if(/\.(mp4|webm|mov|m4v)$/i.test(lower)){const video=document.createElement('video');video.src=url;video.controls=true;host.append(video);return;}if(/\.pdf$/i.test(lower)){const frame=document.createElement('iframe');frame.src=url;host.append(frame);return;}const link=document.createElement('a');link.href=url;link.textContent=target;host.append(link);}
+async function renderReading(tab:OpenTab):Promise<void>{let source=tab.content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/,'');source=source.replace(/!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g,(_m,target:string)=>`<div class="reading-embed" data-ivory-embed="${encodeURIComponent(target.trim())}"></div>`);source=source.replace(/(?<!!)\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g,(_m,target:string,label?:string)=>`[${label||target}](ivory://${encodeURIComponent(target.trim())})`);readingHost.innerHTML=DOMPurify.sanitize(await marked.parse(source,{gfm:true}),{ADD_ATTR:['data-ivory-embed']});readingHost.querySelectorAll<HTMLAnchorElement>('a[href^="ivory://"]').forEach(anchor=>anchor.addEventListener('click',event=>{event.preventDefault();openWikiTarget(decodeURIComponent(anchor.getAttribute('href')!.slice(8)));}));await Promise.all([...readingHost.querySelectorAll<HTMLElement>('[data-ivory-embed]')].map(host=>hydrateEmbed(host,decodeURIComponent(host.dataset.ivoryEmbed??''),tab.path)));await Promise.all([...readingHost.querySelectorAll<HTMLImageElement>('img')].map(async image=>{const src=image.getAttribute('src')??'';if(!src||/^(https?:|data:|file:)/i.test(src))return;const url=await resolveAsset(decodeURIComponent(src),tab.path);if(url)image.src=url;}));readingHost.querySelectorAll('blockquote').forEach(quote=>{const first=quote.querySelector('p');if(!first)return;const match=first.textContent?.match(/^\[!([\w-]+)\][+-]?\s*(.*)$/i);if(!match)return;quote.classList.add('reading-callout',`reading-callout-${match[1].toLowerCase()}`);first.classList.add('reading-callout-title');first.textContent=match[2]||match[1][0].toUpperCase()+match[1].slice(1);});}
 
-async function resourceMenu(event: MouseEvent, entry: VaultEntry): Promise<void> {
-  event.preventDefault();
-  const action = window.prompt(`Resource: ${entry.path}\nType R to rename or D to delete.`)?.trim().toLowerCase();
-  if (action === 'r') { const next = window.prompt('Rename/move to:', entry.path)?.trim(); if (next && next !== entry.path) await window.ivory.renameResource(entry.path, next); }
-  if (action === 'd' && window.confirm(`Delete ${entry.path}?`)) { await window.ivory.deleteResource(entry.path); if (tabs.has(entry.path)) closeTab(entry.path); }
-}
-
-async function setSnapshot(next: VaultSnapshot): Promise<void> { snapshot = next; vaultName.textContent = next.name; renderTree(next.entries, fileTree); await rebuildIndex(); }
-async function refreshVault(): Promise<void> { const next = await window.ivory.getVaultSnapshot(); if (next) await setSnapshot(next); }
-async function rebuildIndex(): Promise<void> {
-  if (!snapshot) return; noteIndex.clear();
-  await Promise.all(flattenMarkdown(snapshot.entries).map(async (path) => { try { noteIndex.set(path, parseNote(path, await window.ivory.readTextFile(path))); } catch {} }));
-  renderInspector();
-}
-
-async function chooseVault(): Promise<void> {
-  statusLeft.textContent = 'Opening vault…'; const result = await window.ivory.chooseVault(); if (!result) return;
-  tabs.clear(); activeFile = null; await setSnapshot(result); renderTabs(); showWelcome(); statusLeft.textContent = result.root;
-}
-
-function renderTabs(): void {
-  tabBar.replaceChildren();
-  if (!tabs.size) { const node = document.createElement('div'); node.className = 'tab active welcome-tab'; node.textContent = 'Welcome'; tabBar.append(node); return; }
-  for (const tab of tabs.values()) {
-    const node = document.createElement('button'); node.className = `tab${tab.path === activeFile ? ' active' : ''}`; node.title = tab.path;
-    const label = document.createElement('span'); label.textContent = leafName(tab.path); const close = document.createElement('span'); close.className = 'tab-close'; close.textContent = '×'; close.addEventListener('click', (event) => { event.stopPropagation(); closeTab(tab.path); });
-    node.append(label, close); node.addEventListener('click', () => void activateTab(tab.path)); tabBar.append(node);
-  }
-}
-
-function closeTab(path: string): void { tabs.delete(path); if (activeFile === path) { activeFile = null; const next = [...tabs.keys()].at(-1); if (next) void activateTab(next); else showWelcome(); } renderTabs(); }
-async function openMarkdown(path: string): Promise<void> { if (!tabs.has(path)) tabs.set(path, { path, content: await window.ivory.readTextFile(path), mode: 'live' }); await activateTab(path); }
-async function activateTab(path: string): Promise<void> { const tab = tabs.get(path); if (!tab) return; activeFile = path; welcome.classList.add('hidden'); renderTabs(); if (snapshot) renderTree(snapshot.entries, fileTree); await showTab(tab); renderInspector(); }
-
-async function showTab(tab: OpenTab): Promise<void> {
-  editor?.destroy(); editor = null; editorHost.replaceChildren(); readingHost.replaceChildren();
-  if (tab.mode === 'reading') { editorHost.classList.add('hidden'); readingHost.classList.remove('hidden'); await renderReading(tab); }
-  else { readingHost.classList.add('hidden'); editorHost.classList.remove('hidden'); renderEditor(tab); }
-  renderModeControls(tab);
-}
-
-function renderModeControls(tab: OpenTab): void {
-  statusRight.replaceChildren();
-  for (const mode of ['live', 'source', 'reading'] as ViewMode[]) {
-    const button = document.createElement('button'); button.className = `status-button${tab.mode === mode ? ' active' : ''}`; button.textContent = mode === 'live' ? 'Live Preview' : mode[0].toUpperCase() + mode.slice(1);
-    button.addEventListener('click', async () => { if (editor) tab.content = editor.state.doc.toString(); tab.mode = mode; await showTab(tab); }); statusRight.append(button);
-  }
-}
-
-function openWikiTarget(target: string): void {
-  const resolved = resolveWikiLink(target, noteIndex);
-  if (resolved) void openMarkdown(resolved);
-  else statusLeft.textContent = `Unresolved link: ${target}`;
-}
-
-function renderEditor(tab: OpenTab): void {
-  const extensions = [history(), markdown(), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping];
-  if (tab.mode === 'live') extensions.push(ivoryLivePreview({
-    openWikiLink: openWikiTarget,
-    resolveAsset: (target) => resolveAsset(target, tab.path),
-    readNote: readEmbeddedNote
-  }));
-  extensions.push(EditorView.updateListener.of((update) => {
-    if (!update.docChanged) return; tab.content = update.state.doc.toString(); statusLeft.textContent = 'Editing…'; renderInspector(tab.content);
-    if (saveTimer !== null) window.clearTimeout(saveTimer); const path = tab.path;
-    saveTimer = window.setTimeout(async () => { await window.ivory.writeTextFile(path, tab.content); noteIndex.set(path, parseNote(path, tab.content)); statusLeft.textContent = 'Saved'; }, 400);
-  }));
-  extensions.push(EditorView.theme({ '&': { height: '100%' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--font-text)' }, '.cm-content': { maxWidth: '850px', margin: '0 auto', padding: '48px 56px 30vh' }, '.cm-gutters': { display: 'none' }, '.cm-activeLine': { background: 'transparent' }, '&.cm-focused': { outline: 'none' } }));
-  editor = new EditorView({ parent: editorHost, state: EditorState.create({ doc: tab.content, extensions }) });
-}
-
-async function hydrateEmbed(host: HTMLElement, target: string, sourcePath: string): Promise<void> {
-  const note = await readEmbeddedNote(target);
-  if (note !== null) {
-    const body = note.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/, '');
-    host.classList.add('reading-note-embed');
-    host.innerHTML = DOMPurify.sanitize(await marked.parse(body, { gfm: true }));
-    return;
-  }
-  const url = await resolveAsset(target, sourcePath); host.replaceChildren();
-  if (!url) { host.textContent = `Missing embed: ${target}`; host.classList.add('reading-embed-missing'); return; }
-  const lower = target.toLowerCase();
-  if (/\.(png|jpe?g|gif|webp|svg|avif)$/i.test(lower)) { const image = document.createElement('img'); image.src = url; image.alt = target; host.append(image); return; }
-  if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(lower)) { const audio = document.createElement('audio'); audio.src = url; audio.controls = true; host.append(audio); return; }
-  if (/\.(mp4|webm|mov|m4v)$/i.test(lower)) { const video = document.createElement('video'); video.src = url; video.controls = true; host.append(video); return; }
-  if (/\.pdf$/i.test(lower)) { const frame = document.createElement('iframe'); frame.src = url; host.append(frame); return; }
-  const link = document.createElement('a'); link.href = url; link.textContent = target; host.append(link);
-}
-
-async function renderReading(tab: OpenTab): Promise<void> {
-  let source = tab.content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/, '');
-  source = source.replace(/!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, (_m, target: string) => `<div class="reading-embed" data-ivory-embed="${encodeURIComponent(target.trim())}"></div>`);
-  source = source.replace(/(?<!!)\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g, (_m, target: string, label?: string) => `[${label || target}](ivory://${encodeURIComponent(target.trim())})`);
-  readingHost.innerHTML = DOMPurify.sanitize(await marked.parse(source, { gfm: true }), { ADD_ATTR: ['data-ivory-embed'] });
-
-  readingHost.querySelectorAll<HTMLAnchorElement>('a[href^="ivory://"]').forEach((anchor) => anchor.addEventListener('click', (event) => { event.preventDefault(); openWikiTarget(decodeURIComponent(anchor.getAttribute('href')!.slice(8))); }));
-  await Promise.all([...readingHost.querySelectorAll<HTMLElement>('[data-ivory-embed]')].map((host) => hydrateEmbed(host, decodeURIComponent(host.dataset.ivoryEmbed ?? ''), tab.path)));
-  await Promise.all([...readingHost.querySelectorAll<HTMLImageElement>('img')].map(async (image) => {
-    const src = image.getAttribute('src') ?? '';
-    if (!src || /^(https?:|data:|file:)/i.test(src)) return;
-    const url = await resolveAsset(decodeURIComponent(src), tab.path); if (url) image.src = url;
-  }));
-
-  readingHost.querySelectorAll('blockquote').forEach((quote) => {
-    const first = quote.querySelector('p'); if (!first) return;
-    const match = first.textContent?.match(/^\[!([\w-]+)\][+-]?\s*(.*)$/i); if (!match) return;
-    quote.classList.add('reading-callout', `reading-callout-${match[1].toLowerCase()}`);
-    first.classList.add('reading-callout-title'); first.textContent = match[2] || match[1][0].toUpperCase() + match[1].slice(1);
-  });
-}
-
-async function updateProperty(key: string, raw: string, previous: unknown): Promise<void> {
-  if (!activeFile) return; const tab = tabs.get(activeFile); if (!tab) return;
-  const metadata = parseNote(tab.path, tab.content); metadata.frontmatter[key] = parsePropertyInput(raw, previous); tab.content = replaceFrontmatter(tab.content, metadata.frontmatter);
-  await window.ivory.writeTextFile(tab.path, tab.content); noteIndex.set(tab.path, parseNote(tab.path, tab.content));
-  if (editor) editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: tab.content } });
-  renderInspector(); statusLeft.textContent = 'Property saved';
-}
-
-async function addProperty(): Promise<void> {
-  if (!activeFile) return; const key = window.prompt('Property name:')?.trim(); if (!key) return; const value = window.prompt(`Value for ${key}:`, '') ?? '';
-  await updateProperty(key, value, '');
-}
-
-function renderInspector(sourceOverride?: string): void {
-  if (!activeFile) return; const tab = tabs.get(activeFile); if (!tab) return; const metadata = parseNote(activeFile, sourceOverride ?? tab.content);
-  propertiesPanel.replaceChildren();
-  for (const [key, value] of Object.entries(metadata.frontmatter)) {
-    const row = document.createElement('div'); row.className = 'property-row'; const name = document.createElement('span'); name.className = 'property-name'; name.textContent = key;
-    const input = document.createElement('input'); input.className = 'property-input'; input.value = Array.isArray(value) ? value.join(', ') : String(value ?? ''); input.addEventListener('change', () => void updateProperty(key, input.value, value)); row.append(name, input); propertiesPanel.append(row);
-  }
-  if (!Object.keys(metadata.frontmatter).length) { const empty = document.createElement('div'); empty.className = 'empty-state compact'; empty.textContent = 'No properties yet.'; propertiesPanel.append(empty); }
-  const add = document.createElement('button'); add.className = 'property-add'; add.textContent = '＋ Add property'; add.addEventListener('click', () => void addProperty()); propertiesPanel.append(add);
-
-  linksPanel.replaceChildren();
-  const section = (title: string, paths: string[], clickable = true) => { const heading = document.createElement('h3'); heading.textContent = title; linksPanel.append(heading); if (!paths.length) { const empty = document.createElement('div'); empty.className = 'empty-state compact'; empty.textContent = 'None'; linksPanel.append(empty); return; } for (const path of paths) { const button = document.createElement('button'); button.className = 'link-item'; button.textContent = path; if (clickable) button.addEventListener('click', () => openWikiTarget(path)); linksPanel.append(button); } };
-  section('Outgoing links', metadata.links);
-  section('Backlinks', [...noteIndex.values()].filter((note) => note.path !== activeFile && note.links.some((target) => resolveWikiLink(target, noteIndex) === activeFile)).map((note) => note.path));
-  section('Tags', metadata.tags.map((tag) => `#${tag}`), false);
-}
-
-function showWelcome(): void { editor?.destroy(); editor = null; activeFile = null; editorHost.classList.add('hidden'); readingHost.classList.add('hidden'); welcome.classList.remove('hidden'); renderTabs(); propertiesPanel.innerHTML = '<div class="empty-state">Open a note to inspect its properties.</div>'; linksPanel.innerHTML = '<div class="empty-state">Open a note to inspect its links.</div>'; statusRight.textContent = 'Markdown'; }
-
-async function createNote(): Promise<void> { if (!snapshot) return; const raw = window.prompt('New note path:', 'Untitled.md')?.trim(); if (!raw) return; const path = raw.toLowerCase().endsWith('.md') ? raw : `${raw}.md`; try { await window.ivory.createMarkdown(path); await refreshVault(); await openMarkdown(path); } catch (error) { window.alert(String(error)); } }
-async function createFolder(): Promise<void> { if (!snapshot) return; const path = window.prompt('New folder path:', 'New folder')?.trim(); if (!path) return; try { await window.ivory.createFolder(path); await refreshVault(); } catch (error) { window.alert(String(error)); } }
-async function runSearch(): Promise<void> { const query = searchInput.value.trim(); if (!query) { searchResults.replaceChildren(); return; } renderSearchResults(await window.ivory.searchVault(query)); }
-function renderSearchResults(hits: SearchHit[]): void { searchResults.replaceChildren(); if (!hits.length) { searchResults.innerHTML = '<div class="empty-state compact">No results.</div>'; return; } for (const hit of hits) { const button = document.createElement('button'); button.className = 'search-hit'; const title = document.createElement('strong'); title.textContent = `${leafName(hit.path)} · ${hit.line}`; const preview = document.createElement('span'); preview.textContent = hit.preview; button.append(title, preview); button.addEventListener('click', () => void openMarkdown(hit.path)); searchResults.append(button); } }
-
-for (const selector of ['#open-vault', '#open-vault-secondary', '#welcome-open']) $(selector).addEventListener('click', () => void chooseVault());
-$('#new-note').addEventListener('click', () => void createNote()); $('#new-folder').addEventListener('click', () => void createFolder());
-$('#toggle-search').addEventListener('click', () => { searchPanel.classList.toggle('hidden'); if (!searchPanel.classList.contains('hidden')) searchInput.focus(); });
-searchInput.addEventListener('input', () => { if (searchTimer !== null) window.clearTimeout(searchTimer); searchTimer = window.setTimeout(() => void runSearch(), 180); });
-document.querySelectorAll<HTMLButtonElement>('.right-tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.right-tab').forEach((item) => item.classList.remove('active')); button.classList.add('active'); const props = button.dataset.panel === 'properties'; propertiesPanel.classList.toggle('hidden', !props); linksPanel.classList.toggle('hidden', props); }));
-window.ivory.onVaultChange((change) => { statusLeft.textContent = `Vault: ${change.type} ${change.path}`; if (refreshTimer !== null) window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void refreshVault(), 220); });
+async function updateProperty(key:string,raw:string,previous:unknown):Promise<void>{if(!activeFile)return;const tab=tabs.get(activeFile);if(!tab)return;const metadata=parseNote(tab.path,tab.content);metadata.frontmatter[key]=parsePropertyInput(raw,previous);tab.content=replaceFrontmatter(tab.content,metadata.frontmatter);await window.ivory.writeTextFile(tab.path,tab.content);noteIndex.set(tab.path,parseNote(tab.path,tab.content));if(editor)editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:tab.content}});renderInspector();statusLeft.textContent='Property saved';}
+async function addProperty():Promise<void>{if(!activeFile)return;const key=window.prompt('Property name:')?.trim();if(!key)return;const value=window.prompt(`Value for ${key}:`,'')??'';await updateProperty(key,value,'');}
+function renderInspector(sourceOverride?:string):void{if(!activeFile)return;const tab=tabs.get(activeFile);if(!tab)return;const metadata=parseNote(activeFile,sourceOverride??tab.content);propertiesPanel.replaceChildren();for(const [key,value] of Object.entries(metadata.frontmatter)){const row=document.createElement('div');row.className='property-row';const name=document.createElement('span');name.className='property-name';name.textContent=key;const input=document.createElement('input');input.className='property-input';input.value=Array.isArray(value)?value.join(', '):String(value??'');input.addEventListener('change',()=>void updateProperty(key,input.value,value));row.append(name,input);propertiesPanel.append(row);}if(!Object.keys(metadata.frontmatter).length){const empty=document.createElement('div');empty.className='empty-state compact';empty.textContent='No properties yet.';propertiesPanel.append(empty);}const add=document.createElement('button');add.className='property-add';add.textContent='＋ Add property';add.addEventListener('click',()=>void addProperty());propertiesPanel.append(add);linksPanel.replaceChildren();const section=(title:string,paths:string[],clickable=true)=>{const heading=document.createElement('h3');heading.textContent=title;linksPanel.append(heading);if(!paths.length){const empty=document.createElement('div');empty.className='empty-state compact';empty.textContent='None';linksPanel.append(empty);return;}for(const path of paths){const button=document.createElement('button');button.className='link-item';button.textContent=path;if(clickable)button.addEventListener('click',()=>openWikiTarget(path));linksPanel.append(button);}};section('Outgoing links',metadata.links);section('Backlinks',[...noteIndex.values()].filter(note=>note.path!==activeFile&&note.links.some(target=>resolveWikiLink(target,noteIndex)===activeFile)).map(note=>note.path));section('Tags',metadata.tags.map(tag=>`#${tag}`),false);}
+function showWelcome():void{editor?.destroy();editor=null;activeFile=null;editorHost.classList.add('hidden');readingHost.classList.add('hidden');welcome.classList.remove('hidden');renderTabs();propertiesPanel.innerHTML='<div class="empty-state">Open a note to inspect its properties.</div>';linksPanel.innerHTML='<div class="empty-state">Open a note to inspect its links.</div>';statusRight.textContent='Markdown';}
+async function createNote():Promise<void>{if(!snapshot)return;const raw=window.prompt('New note path:','Untitled.md')?.trim();if(!raw)return;const path=raw.toLowerCase().endsWith('.md')?raw:`${raw}.md`;try{await window.ivory.createMarkdown(path);await refreshVault();await openMarkdown(path);}catch(error){window.alert(String(error));}}
+async function createFolder():Promise<void>{if(!snapshot)return;const path=window.prompt('New folder path:','New folder')?.trim();if(!path)return;try{await window.ivory.createFolder(path);await refreshVault();}catch(error){window.alert(String(error));}}
+async function runSearch():Promise<void>{const query=searchInput.value.trim();if(!query){searchResults.replaceChildren();return;}renderSearchResults(await window.ivory.searchVault(query));}
+function renderSearchResults(hits:SearchHit[]):void{searchResults.replaceChildren();if(!hits.length){searchResults.innerHTML='<div class="empty-state compact">No results.</div>';return;}for(const hit of hits){const button=document.createElement('button');button.className='search-hit';const title=document.createElement('strong');title.textContent=`${leafName(hit.path)} · ${hit.line}`;const preview=document.createElement('span');preview.textContent=hit.preview;button.append(title,preview);button.addEventListener('click',()=>void openMarkdown(hit.path));searchResults.append(button);}}
+for(const selector of ['#open-vault','#open-vault-secondary','#welcome-open'])$(selector).addEventListener('click',()=>void chooseVault());$('#new-note').addEventListener('click',()=>void createNote());$('#new-folder').addEventListener('click',()=>void createFolder());$('#toggle-search').addEventListener('click',()=>{searchPanel.classList.toggle('hidden');if(!searchPanel.classList.contains('hidden'))searchInput.focus();});searchInput.addEventListener('input',()=>{if(searchTimer!==null)window.clearTimeout(searchTimer);searchTimer=window.setTimeout(()=>void runSearch(),180);});document.querySelectorAll<HTMLButtonElement>('.right-tab').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.right-tab').forEach(item=>item.classList.remove('active'));button.classList.add('active');const props=button.dataset.panel==='properties';propertiesPanel.classList.toggle('hidden',!props);linksPanel.classList.toggle('hidden',props);}));window.ivory.onVaultChange(change=>{statusLeft.textContent=`Vault: ${change.type} ${change.path}`;if(refreshTimer!==null)window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void refreshVault(),220);});
