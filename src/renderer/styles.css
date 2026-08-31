@@ -101,17 +101,22 @@ button { border: 0; }
 .cm-editor { background: var(--background-primary); color: var(--text-normal); font-size: 16px; line-height: 1.65; }
 .cm-editor .cm-cursor { border-left-color: var(--text-normal); }
 .cm-editor .cm-selectionBackground, .cm-editor.cm-focused .cm-selectionBackground { background: rgba(183, 166, 232, .22); }
-.cm-ivory-wikilink { color: var(--accent); text-decoration: none; cursor: pointer; }
+.cm-ivory-wikilink, .cm-ivory-tag { color: var(--accent); text-decoration: none; cursor: pointer; }
 .cm-ivory-wikilink:hover { text-decoration: underline; }
 .cm-ivory-strong { font-weight: 700; }
 .cm-ivory-em { font-style: italic; }
-.cm-ivory-heading-marker { color: var(--text-faint); }
-.cm-ivory-heading { font-weight: 700; line-height: 1.35; }
+.cm-ivory-strike { text-decoration: line-through; color: var(--text-muted); }
+.cm-ivory-inline-code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--background-modifier); border-radius: 4px; padding: 1px 4px; color: #e5c07b; }
+.cm-ivory-heading { font-weight: 700; line-height: 1.35; color: #f0f0f0; }
 .cm-ivory-heading-1 { font-size: 2em; }
 .cm-ivory-heading-2 { font-size: 1.55em; }
 .cm-ivory-heading-3 { font-size: 1.3em; }
 .cm-ivory-heading-4 { font-size: 1.15em; }
 .cm-ivory-heading-5 { font-size: 1.05em; }
 .cm-ivory-heading-6 { font-size: 1em; color: var(--text-muted); }
+.cm-ivory-blockquote { border-left: 3px solid #555; padding-left: 14px; color: var(--text-muted); }
+.cm-ivory-callout { background: rgba(183, 166, 232, .06); border-left-color: var(--accent); font-weight: 600; }
+.cm-ivory-checkbox { vertical-align: middle; margin: 0 7px 0 1px; accent-color: var(--accent); cursor: pointer; }
+.cm-ivory-tag { background: rgba(183, 166, 232, .1); border-radius: 4px; padding: 0 3px; font-size: .92em; }
 @media (max-width: 1150px) { .ivory-shell { grid-template-columns: 44px 220px minmax(0, 1fr); } .right-sidebar { display: none; } }
 @media (max-width: 800px) { .ivory-shell { grid-template-columns: 44px 190px minmax(0, 1fr); } }
