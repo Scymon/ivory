@@ -1,4 +1,4 @@
-import { RangeSetBuilder, type Extension } from '@codemirror/state';
+import { type Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate, WidgetType } from '@codemirror/view';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -76,10 +76,9 @@ function selectionTouches(view: EditorView, from: number, to: number): boolean {
 }
 
 function buildDecorations(view: EditorView, options: LivePreviewOptions): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
   const text = view.state.doc.toString();
-  const candidates: Array<{ from: number; to: number; decoration: Decoration }> = [];
-  const add = (from: number, to: number, decoration: Decoration) => candidates.push({ from, to, decoration });
+  const ranges: ReturnType<Decoration['range']>[] = [];
+  const add = (from: number, to: number, decoration: Decoration) => ranges.push(decoration.range(from, to));
 
   const frontmatter = text.match(/^---\s*\r?\n[\s\S]*?\r?\n---\s*(?:\r?\n|$)/);
   if (frontmatter && !selectionTouches(view, 0, frontmatter[0].length)) add(0, frontmatter[0].length, Decoration.replace({ block: true }));
@@ -97,14 +96,17 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Decora
   for (const match of text.matchAll(/^#{1,6}\s+/gm)) {
     const from = match.index!; const to = from + match[0].length; const level = Math.min(6, match[0].trim().length);
     if (!selectionTouches(view, from, to)) add(from, to, Decoration.replace({}));
-    add(view.state.doc.lineAt(from).from, view.state.doc.lineAt(from).from, Decoration.line({ class: `cm-ivory-heading cm-ivory-heading-${level}` }));
+    const line = view.state.doc.lineAt(from);
+    add(line.from, line.from, Decoration.line({ class: `cm-ivory-heading cm-ivory-heading-${level}` }));
   }
 
   for (const match of text.matchAll(/^>\s?/gm)) {
     const from = match.index!; const to = from + match[0].length;
     if (!selectionTouches(view, from, to)) add(from, to, Decoration.replace({}));
-    add(view.state.doc.lineAt(from).from, view.state.doc.lineAt(from).from, Decoration.line({ class: 'cm-ivory-blockquote' }));
+    const line = view.state.doc.lineAt(from);
+    add(line.from, line.from, Decoration.line({ class: 'cm-ivory-blockquote' }));
   }
+
   for (const match of text.matchAll(/^>\s*\[!([\w-]+)\][+-]?\s*(.*)$/gmi)) {
     const line = view.state.doc.lineAt(match.index!);
     add(line.from, line.from, Decoration.line({ class: `cm-ivory-callout cm-ivory-callout-${match[1].toLowerCase()}` }));
@@ -122,7 +124,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Decora
 
   for (const match of text.matchAll(/!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
     const from = match.index!; const to = from + match[0].length;
-    if (!selectionTouches(view, from, to)) add(from, to, Decoration.replace({ block: true, widget: new EmbedWidget(match[1].trim(), options) }));
+    if (!selectionTouches(view, from, to)) add(from, to, Decoration.replace({ widget: new EmbedWidget(match[1].trim(), options) }));
   }
 
   for (const match of text.matchAll(/(?<!!)\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g)) {
@@ -150,14 +152,7 @@ function buildDecorations(view: EditorView, options: LivePreviewOptions): Decora
     const from = match.index! + match[1].length; add(from, from + match[2].length, Decoration.mark({ class: 'cm-ivory-tag' }));
   }
 
-  candidates.sort((a, b) => a.from - b.from || a.to - b.to);
-  let lastTo = -1;
-  for (const item of candidates) {
-    if (item.from < lastTo && item.from !== item.to) continue;
-    builder.add(item.from, item.to, item.decoration);
-    if (item.to > item.from) lastTo = item.to;
-  }
-  return builder.finish();
+  return Decoration.set(ranges, true);
 }
 
 export function ivoryLivePreview(options: LivePreviewOptions): Extension {
