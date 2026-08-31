@@ -44,9 +44,6 @@ const host = document.createElement('section');
 host.className = 'canvas-host hidden';
 host.innerHTML = `
   <div class="canvas-toolbar">
-    <button type="button" data-canvas-action="add-text" title="Add text card">＋ Text</button>
-    <button type="button" data-canvas-action="add-file" title="Add note/file card">＋ Note</button>
-    <span class="canvas-toolbar-divider"></span>
     <button type="button" data-canvas-action="zoom-out" title="Zoom out">−</button>
     <span class="canvas-zoom">100%</span>
     <button type="button" data-canvas-action="zoom-in" title="Zoom in">＋</button>
@@ -55,7 +52,6 @@ host.innerHTML = `
   <div class="canvas-empty hidden">
     <strong>Empty canvas</strong>
     <span>Double-click anywhere to create a text card.</span>
-    <span>Use + Text or + Note below.</span>
   </div>
   <div class="canvas-viewport" tabindex="0">
     <svg class="canvas-edges" aria-hidden="true"></svg>
@@ -190,16 +186,25 @@ function renderNode(node: CanvasNode): HTMLElement {
   element.style.left = `${node.x}px`; element.style.top = `${node.y}px`;
   element.style.width = `${node.width}px`; element.style.height = `${node.height}px`;
 
-  const header = document.createElement('div'); header.className = 'canvas-node-header';
-  const title = document.createElement('span'); title.textContent = node.type === 'file' ? leafName(node.file) : node.type === 'link' ? 'Link' : node.type === 'group' ? (node.label || 'Group') : 'Text';
-  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'canvas-node-delete'; remove.textContent = '×'; remove.title = 'Delete node';
-  remove.addEventListener('click', (event) => { event.stopPropagation(); documentState.nodes = documentState.nodes.filter((item) => item.id !== node.id); documentState.edges = documentState.edges.filter((edge) => edge.fromNode !== node.id && edge.toNode !== node.id); selectedNodeId = null; renderCanvas(); scheduleSave(); });
-  header.append(title, remove); element.append(header);
+  const isText = node.type === 'text';
+  let dragHandle: HTMLElement = element;
+
+  if (!isText) {
+    const header = document.createElement('div'); header.className = 'canvas-node-header';
+    const title = document.createElement('span'); title.textContent = node.type === 'file' ? leafName(node.file) : node.type === 'link' ? 'Link' : (node.label || 'Group');
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'canvas-node-delete'; remove.textContent = '×'; remove.title = 'Delete node';
+    remove.addEventListener('click', (event) => { event.stopPropagation(); documentState.nodes = documentState.nodes.filter((item) => item.id !== node.id); documentState.edges = documentState.edges.filter((edge) => edge.fromNode !== node.id && edge.toNode !== node.id); selectedNodeId = null; renderCanvas(); scheduleSave(); });
+    header.append(title, remove); element.append(header); dragHandle = header;
+  }
 
   const body = document.createElement('div'); body.className = 'canvas-node-body';
   if (node.type === 'text') {
-    const textarea = document.createElement('textarea'); textarea.value = node.text ?? ''; textarea.placeholder = 'Type something…'; textarea.spellcheck = true;
+    const textarea = document.createElement('textarea');
+    textarea.value = node.text ?? '';
+    textarea.placeholder = 'Type something…';
+    textarea.spellcheck = true;
     textarea.addEventListener('input', () => { node.text = textarea.value; scheduleSave(); });
+    textarea.addEventListener('pointerdown', (event) => event.stopPropagation());
     body.append(textarea);
   } else if (node.type === 'file') {
     const button = document.createElement('button'); button.className = 'canvas-file-card'; button.textContent = node.file; button.title = node.file;
@@ -211,20 +216,20 @@ function renderNode(node: CanvasNode): HTMLElement {
   element.addEventListener('pointerdown', () => selectNode(node.id));
 
   let drag: { startX: number; startY: number; nodeX: number; nodeY: number } | null = null;
-  header.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
-    event.preventDefault(); event.stopPropagation(); header.setPointerCapture(event.pointerId);
+  dragHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest('button,textarea,input,a')) return;
+    event.preventDefault(); event.stopPropagation(); dragHandle.setPointerCapture(event.pointerId);
     selectNode(node.id);
     drag = { startX: event.clientX, startY: event.clientY, nodeX: node.x, nodeY: node.y };
     element.classList.add('dragging');
   });
-  header.addEventListener('pointermove', (event) => {
+  dragHandle.addEventListener('pointermove', (event) => {
     if (!drag) return;
     node.x = drag.nodeX + (event.clientX - drag.startX) / zoom;
     node.y = drag.nodeY + (event.clientY - drag.startY) / zoom;
     element.style.left = `${node.x}px`; element.style.top = `${node.y}px`; renderEdges();
   });
-  header.addEventListener('pointerup', () => { if (!drag) return; drag = null; element.classList.remove('dragging'); scheduleSave(); });
+  dragHandle.addEventListener('pointerup', () => { if (!drag) return; drag = null; element.classList.remove('dragging'); scheduleSave(); });
   return element;
 }
 
@@ -243,15 +248,6 @@ function createTextNode(point?: { x: number; y: number }): void {
   const node: TextCanvasNode = { id: nextId(), type: 'text', text: '', x: center.x - 140, y: center.y - 90, width: 280, height: 180 };
   documentState.nodes.push(node); selectedNodeId = node.id; renderCanvas(); scheduleSave();
   requestAnimationFrame(() => world.querySelector<HTMLTextAreaElement>(`[data-node-id="${node.id}"] textarea`)?.focus());
-}
-
-function createFileNode(): void {
-  if (!canvasPath) return;
-  const file = window.prompt('Vault note/file path to add:', 'Note.md')?.trim();
-  if (!file) return;
-  const rect = viewport.getBoundingClientRect(); const center = transformPoint(rect.width / 2, rect.height / 2);
-  const node: FileCanvasNode = { id: nextId(), type: 'file', file, x: center.x - 160, y: center.y - 100, width: 320, height: 200 };
-  documentState.nodes.push(node); selectedNodeId = node.id; renderCanvas(); scheduleSave();
 }
 
 function fitCanvas(): void {
@@ -288,19 +284,26 @@ viewport.addEventListener('pointerdown', (event) => {
 });
 viewport.addEventListener('pointermove', (event) => { if (!pan) return; panX = pan.panX + event.clientX - pan.x; panY = pan.panY + event.clientY - pan.y; applyTransform(); });
 viewport.addEventListener('pointerup', () => { pan = null; viewport.classList.remove('panning'); });
-viewport.addEventListener('dblclick', (event) => { if ((event.target as HTMLElement).closest('.canvas-node')) return; createTextNode(viewportPoint(event)); });
+viewport.addEventListener('dblclick', (event) => {
+  if ((event.target as HTMLElement).closest('.canvas-node')) return;
+  createTextNode(viewportPoint(event));
+});
 viewport.addEventListener('wheel', (event) => {
-  event.preventDefault(); const rect = viewport.getBoundingClientRect(); const mouseX = event.clientX - rect.left; const mouseY = event.clientY - rect.top; const before = transformPoint(mouseX, mouseY);
-  zoom = Math.min(3, Math.max(.15, zoom * (event.deltaY < 0 ? 1.1 : .9))); panX = mouseX - before.x * zoom; panY = mouseY - before.y * zoom; applyTransform();
+  event.preventDefault();
+  const rect = viewport.getBoundingClientRect(); const mouseX = event.clientX - rect.left; const mouseY = event.clientY - rect.top;
+  const before = transformPoint(mouseX, mouseY);
+  zoom = Math.min(3, Math.max(.15, zoom * (event.deltaY < 0 ? 1.1 : .9)));
+  panX = mouseX - before.x * zoom; panY = mouseY - before.y * zoom; applyTransform();
 }, { passive: false });
 viewport.addEventListener('keydown', (event) => {
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeId && !(event.target as HTMLElement).closest('textarea,input')) {
-    documentState.nodes = documentState.nodes.filter((node) => node.id !== selectedNodeId); documentState.edges = documentState.edges.filter((edge) => edge.fromNode !== selectedNodeId && edge.toNode !== selectedNodeId); selectedNodeId = null; renderCanvas(); scheduleSave();
-  }
+  if (!selectedNodeId || (event.target as HTMLElement).matches('textarea,input')) return;
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  event.preventDefault();
+  documentState.nodes = documentState.nodes.filter((node) => node.id !== selectedNodeId);
+  documentState.edges = documentState.edges.filter((edge) => edge.fromNode !== selectedNodeId && edge.toNode !== selectedNodeId);
+  selectedNodeId = null; renderCanvas(); scheduleSave();
 });
 
 host.querySelector('[data-canvas-action="zoom-in"]')?.addEventListener('click', () => { zoom = Math.min(3, zoom * 1.15); applyTransform(); });
 host.querySelector('[data-canvas-action="zoom-out"]')?.addEventListener('click', () => { zoom = Math.max(.15, zoom / 1.15); applyTransform(); });
 host.querySelector('[data-canvas-action="fit"]')?.addEventListener('click', fitCanvas);
-host.querySelector('[data-canvas-action="add-text"]')?.addEventListener('click', () => createTextNode());
-host.querySelector('[data-canvas-action="add-file"]')?.addEventListener('click', () => createFileNode());
