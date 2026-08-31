@@ -11,27 +11,48 @@ const nodeShared = {
   external: ['electron']
 };
 
-const browserShared = {
+const main = {
+  ...nodeShared,
+  format: 'esm',
+  entryPoints: ['src/main/main.ts'],
+  outfile: 'dist/main.js'
+};
+
+const preload = {
+  ...nodeShared,
+  format: 'cjs',
+  entryPoints: ['src/preload/preload.ts'],
+  outfile: 'dist/preload.cjs'
+};
+
+// IMPORTANT: every renderer entrypoint is compiled in ONE esbuild graph.
+// This allows code splitting to preserve singleton module state for shared
+// modules such as tab-system.ts and workspace-router.ts. Building each file
+// independently duplicates their module-level Maps, observers, and listeners.
+const renderer = {
   bundle: true,
   sourcemap: true,
   platform: 'browser',
   format: 'esm',
-  target: 'chrome138'
+  target: 'chrome138',
+  splitting: true,
+  outdir: 'dist',
+  entryNames: '[name]',
+  chunkNames: 'chunks/[name]-[hash]',
+  entryPoints: {
+    renderer: 'src/renderer/index.ts',
+    'workspace-router': 'src/renderer/workspace-router.ts',
+    'native-reopen-guard': 'src/renderer/native-reopen-guard.ts',
+    'document-sync': 'src/renderer/document-sync.ts',
+    'open-path': 'src/renderer/open-path.ts',
+    canvas: 'src/renderer/canvas.ts',
+    'canvas-markdown': 'src/renderer/canvas-markdown.ts',
+    'image-viewer': 'src/renderer/image-viewer.ts',
+    bases: 'src/renderer/bases.ts',
+    'base-prompt-bridge': 'src/renderer/base-prompt-bridge.ts',
+    'base-create-note': 'src/renderer/base-create-note.ts'
+  }
 };
-
-const main = { ...nodeShared, format: 'esm', entryPoints: ['src/main/main.ts'], outfile: 'dist/main.js' };
-const preload = { ...nodeShared, format: 'cjs', entryPoints: ['src/preload/preload.ts'], outfile: 'dist/preload.cjs' };
-const renderer = { ...browserShared, entryPoints: ['src/renderer/index.ts'], outfile: 'dist/renderer.js' };
-const workspaceRouter = { ...browserShared, entryPoints: ['src/renderer/workspace-router.ts'], outfile: 'dist/workspace-router.js' };
-const reopenGuard = { ...browserShared, entryPoints: ['src/renderer/native-reopen-guard.ts'], outfile: 'dist/native-reopen-guard.js' };
-const documentSync = { ...browserShared, entryPoints: ['src/renderer/document-sync.ts'], outfile: 'dist/document-sync.js' };
-const openPath = { ...browserShared, entryPoints: ['src/renderer/open-path.ts'], outfile: 'dist/open-path.js' };
-const canvas = { ...browserShared, entryPoints: ['src/renderer/canvas.ts'], outfile: 'dist/canvas.js' };
-const canvasMarkdown = { ...browserShared, entryPoints: ['src/renderer/canvas-markdown.ts'], outfile: 'dist/canvas-markdown.js' };
-const imageViewer = { ...browserShared, entryPoints: ['src/renderer/image-viewer.ts'], outfile: 'dist/image-viewer.js' };
-const bases = { ...browserShared, entryPoints: ['src/renderer/bases.ts'], outfile: 'dist/bases.js' };
-const basePromptBridge = { ...browserShared, entryPoints: ['src/renderer/base-prompt-bridge.ts'], outfile: 'dist/base-prompt-bridge.js' };
-const baseCreateNote = { ...browserShared, entryPoints: ['src/renderer/base-create-note.ts'], outfile: 'dist/base-create-note.js' };
 
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
@@ -40,7 +61,7 @@ await cp('src/renderer/canvas.css', 'dist/canvas.css');
 await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 await cp('src/renderer/bases.css', 'dist/bases.css');
 
-const configs = [main, preload, renderer, workspaceRouter, reopenGuard, documentSync, openPath, canvas, canvasMarkdown, imageViewer, bases, basePromptBridge, baseCreateNote];
+const configs = [main, preload, renderer];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
