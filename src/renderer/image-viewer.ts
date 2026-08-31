@@ -1,3 +1,4 @@
+import './workspace-router.js';
 import { isImageFile, isNativeExplorerFile } from './file-types.js';
 
 const workspaceBody = document.querySelector<HTMLElement>('.workspace-body');
@@ -66,15 +67,8 @@ async function resolveImagePathByName(name: string): Promise<string | null> {
   return matches[0] ?? null;
 }
 
-function hideOtherViews(): void {
-  editorHost.classList.add('hidden');
-  readingHost.classList.add('hidden');
-  welcome.classList.add('hidden');
-  document.querySelector<HTMLElement>('.canvas-host')?.classList.add('hidden');
-}
-
 function showImageViewer(): void {
-  hideOtherViews();
+  window.dispatchEvent(new Event('ivory:show-image'));
   host.classList.remove('hidden');
   imageTab?.classList.add('active');
   statusRight.textContent = 'Image';
@@ -145,6 +139,13 @@ fileTree.addEventListener('click', async (event) => {
 tabBar.addEventListener('click', (event) => {
   const tab = (event.target as HTMLElement).closest('.tab');
   if (tab && !tab.classList.contains('image-viewer-tab')) hideImageViewer();
+}, true);
+
+fileTree.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.tree-file');
+  if (!button) return;
+  const path = button.dataset.path ?? button.textContent?.trim() ?? '';
+  if (!isImageFile(path)) hideImageViewer();
 }, true);
 
 let pan: { startX: number; startY: number; panX: number; panY: number } | null = null;
