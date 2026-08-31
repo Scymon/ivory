@@ -22,8 +22,8 @@ const browserShared = {
 const main = { ...nodeShared, format: 'esm', entryPoints: ['src/main/main.ts'], outfile: 'dist/main.js' };
 const preload = { ...nodeShared, format: 'cjs', entryPoints: ['src/preload/preload.ts'], outfile: 'dist/preload.cjs' };
 const renderer = { ...browserShared, entryPoints: ['src/renderer/index.ts'], outfile: 'dist/renderer.js' };
-const appMenu = { ...browserShared, entryPoints: ['src/renderer/app-menu.ts'], outfile: 'dist/app-menu.js' };
 const workspaceRouter = { ...browserShared, entryPoints: ['src/renderer/workspace-router.ts'], outfile: 'dist/workspace-router.js' };
+const reopenGuard = { ...browserShared, entryPoints: ['src/renderer/native-reopen-guard.ts'], outfile: 'dist/native-reopen-guard.js' };
 const openPath = { ...browserShared, entryPoints: ['src/renderer/open-path.ts'], outfile: 'dist/open-path.js' };
 const canvas = { ...browserShared, entryPoints: ['src/renderer/canvas.ts'], outfile: 'dist/canvas.js' };
 const canvasMarkdown = { ...browserShared, entryPoints: ['src/renderer/canvas-markdown.ts'], outfile: 'dist/canvas-markdown.js' };
@@ -33,12 +33,11 @@ const bases = { ...browserShared, entryPoints: ['src/renderer/bases.ts'], outfil
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
 await cp('src/renderer/styles.css', 'dist/styles.css');
-await cp('src/renderer/app-menu.css', 'dist/app-menu.css');
 await cp('src/renderer/canvas.css', 'dist/canvas.css');
 await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 await cp('src/renderer/bases.css', 'dist/bases.css');
 
-const configs = [main, preload, renderer, appMenu, workspaceRouter, openPath, canvas, canvasMarkdown, imageViewer, bases];
+const configs = [main, preload, renderer, workspaceRouter, reopenGuard, openPath, canvas, canvasMarkdown, imageViewer, bases];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
