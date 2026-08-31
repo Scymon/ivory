@@ -1,0 +1,12 @@
+.mark { cursor: pointer; user-select: none; }
+.mark:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.ivory-app-menu { position: fixed; z-index: 1000; display: grid; grid-template-columns: 150px 220px; min-height: 188px; border: 1px solid #3a3a3a; border-radius: 8px; background: #1b1b1b; box-shadow: 0 14px 40px rgba(0,0,0,.46); overflow: hidden; }
+.ivory-app-menu.hidden { display: none; }
+.ivory-app-menu-groups { padding: 6px; border-right: 1px solid #303030; background: #181818; }
+.ivory-app-submenu { min-width: 220px; padding: 6px; background: #1d1d1d; }
+.ivory-app-menu-group,.ivory-app-menu-item { width: 100%; height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 10px; border-radius: 5px; background: transparent; color: var(--text-normal); text-align: left; cursor: pointer; }
+.ivory-app-menu-group { color: var(--text-muted); }
+.ivory-app-menu-group:hover,.ivory-app-menu-group.active,.ivory-app-menu-item:hover { background: var(--background-modifier); color: var(--text-normal); }
+.ivory-app-menu-arrow { color: var(--text-faint); font-size: 18px; line-height: 1; }
+.ivory-app-menu-shortcut { margin-left: auto; color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.ivory-app-menu-item.danger:hover { background: rgba(210,70,70,.16); color: #ff9a9a; }
