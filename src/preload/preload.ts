@@ -12,6 +12,7 @@ const api: IvoryDesktopApi = {
   deleteResource: (relativePath) => ipcRenderer.invoke('ivory:file:delete', relativePath),
   searchVault: (query) => ipcRenderer.invoke('ivory:vault:search', query),
   getAssetUrl: (relativePath) => ipcRenderer.invoke('ivory:file:asset-url', relativePath),
+  windowControl: (action) => ipcRenderer.invoke('ivory:window:control', action),
   onVaultChange: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, change: VaultChange) => callback(change);
     ipcRenderer.on('ivory:vault:change', listener);
