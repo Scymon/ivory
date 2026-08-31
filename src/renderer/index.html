@@ -7,13 +7,15 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./canvas.css" />
     <link rel="stylesheet" href="./image-viewer.css" />
+    <link rel="stylesheet" href="./bases.css" />
     <style>
       .workspace,
       .workspace-body,
       .editor-host,
       .reading-host,
       .canvas-host,
-      .image-viewer-host {
+      .image-viewer-host,
+      .bases-host {
         min-height: 0;
         min-width: 0;
       }
@@ -54,9 +56,12 @@
     <div id="app"></div>
     <script type="module">
       await import('./renderer.js');
+      await import('./workspace-router.js');
+      await import('./open-path.js');
       await import('./canvas.js');
       await import('./canvas-markdown.js');
       await import('./image-viewer.js');
+      await import('./bases.js');
     </script>
   </body>
 </html>
