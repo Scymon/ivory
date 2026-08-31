@@ -24,6 +24,7 @@ const preload = { ...nodeShared, format: 'cjs', entryPoints: ['src/preload/prelo
 const renderer = { ...browserShared, entryPoints: ['src/renderer/index.ts'], outfile: 'dist/renderer.js' };
 const workspaceRouter = { ...browserShared, entryPoints: ['src/renderer/workspace-router.ts'], outfile: 'dist/workspace-router.js' };
 const reopenGuard = { ...browserShared, entryPoints: ['src/renderer/native-reopen-guard.ts'], outfile: 'dist/native-reopen-guard.js' };
+const documentSync = { ...browserShared, entryPoints: ['src/renderer/document-sync.ts'], outfile: 'dist/document-sync.js' };
 const openPath = { ...browserShared, entryPoints: ['src/renderer/open-path.ts'], outfile: 'dist/open-path.js' };
 const canvas = { ...browserShared, entryPoints: ['src/renderer/canvas.ts'], outfile: 'dist/canvas.js' };
 const canvasMarkdown = { ...browserShared, entryPoints: ['src/renderer/canvas-markdown.ts'], outfile: 'dist/canvas-markdown.js' };
@@ -37,7 +38,7 @@ await cp('src/renderer/canvas.css', 'dist/canvas.css');
 await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 await cp('src/renderer/bases.css', 'dist/bases.css');
 
-const configs = [main, preload, renderer, workspaceRouter, reopenGuard, openPath, canvas, canvasMarkdown, imageViewer, bases];
+const configs = [main, preload, renderer, workspaceRouter, reopenGuard, documentSync, openPath, canvas, canvasMarkdown, imageViewer, bases];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
