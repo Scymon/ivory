@@ -1,3 +1,5 @@
+export type IvoryFileType = 'markdown' | 'canvas' | 'image' | null;
+
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico'
 ]);
@@ -8,25 +10,29 @@ function extensionOf(path: string): string {
   return index >= 0 ? leaf.slice(index + 1).toLowerCase() : '';
 }
 
+export function getFileType(path: string): IvoryFileType {
+  const extension = extensionOf(path);
+  if (extension === 'md') return 'markdown';
+  if (extension === 'canvas') return 'canvas';
+  if (IMAGE_EXTENSIONS.has(extension)) return 'image';
+  return null;
+}
+
 export function isMarkdownFile(path: string): boolean {
-  return extensionOf(path) === 'md';
+  return getFileType(path) === 'markdown';
 }
 
 export function isCanvasFile(path: string): boolean {
-  return extensionOf(path) === 'canvas';
+  return getFileType(path) === 'canvas';
 }
 
 export function isImageFile(path: string): boolean {
-  return IMAGE_EXTENSIONS.has(extensionOf(path));
+  return getFileType(path) === 'image';
 }
 
 export function isNativeExplorerFile(path: string): boolean {
-  return isMarkdownFile(path) || isCanvasFile(path) || isImageFile(path);
+  return getFileType(path) !== null;
 }
 
-export function nativeFileKind(path: string): 'markdown' | 'canvas' | 'image' | null {
-  if (isMarkdownFile(path)) return 'markdown';
-  if (isCanvasFile(path)) return 'canvas';
-  if (isImageFile(path)) return 'image';
-  return null;
-}
+// Backwards-compatible alias while older modules are migrated to getFileType().
+export const nativeFileKind = getFileType;
