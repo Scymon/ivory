@@ -42,6 +42,7 @@ const renderer = {
   entryPoints: {
     renderer: 'src/renderer/index.ts',
     'workspace-router': 'src/renderer/workspace-router.ts',
+    'welcome-tab': 'src/renderer/welcome-tab.ts',
     'native-reopen-guard': 'src/renderer/native-reopen-guard.ts',
     'document-sync': 'src/renderer/document-sync.ts',
     'open-path': 'src/renderer/open-path.ts',
@@ -49,6 +50,7 @@ const renderer = {
     'canvas-markdown': 'src/renderer/canvas-markdown.ts',
     'image-viewer': 'src/renderer/image-viewer.ts',
     bases: 'src/renderer/bases.ts',
+    'base-view-dropdown': 'src/renderer/base-view-dropdown.ts',
     'base-prompt-bridge': 'src/renderer/base-prompt-bridge.ts',
     'base-create-note': 'src/renderer/base-create-note.ts'
   }
