@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import chokidar, { type FSWatcher } from 'chokidar';
-import type { OpenVaultResult, SearchHit, VaultChange, VaultEntry, VaultSnapshot } from '../shared/desktop-api.js';
+import type { OpenVaultResult, SearchHit, VaultChange, VaultEntry, VaultSnapshot, WindowControlAction } from '../shared/desktop-api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let vaultRoot: string | null = null;
@@ -40,9 +40,12 @@ async function startWatcher(): Promise<void> {
 }
 
 async function createWindow(): Promise<void> {
-  mainWindow=new BrowserWindow({width:1440,height:900,minWidth:900,minHeight:600,backgroundColor:'#1e1e1e',title:'Ivory',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  mainWindow=new BrowserWindow({width:1440,height:900,minWidth:900,minHeight:600,backgroundColor:'#1e1e1e',title:'Ivory',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.on('closed',()=>{mainWindow=null;}); await mainWindow.loadFile(path.join(__dirname,'index.html'));
 }
+
+Menu.setApplicationMenu(null);
 
 ipcMain.handle('ivory:vault:choose',async():Promise<OpenVaultResult|null>=>{const result=await dialog.showOpenDialog({properties:['openDirectory']});if(result.canceled||!result.filePaths[0])return null;vaultRoot=result.filePaths[0];await startWatcher();return snapshot();});
 ipcMain.handle('ivory:vault:snapshot',()=>snapshot());
@@ -53,6 +56,7 @@ ipcMain.handle('ivory:file:create-markdown',async(_event,relativePath:string)=>{
 ipcMain.handle('ivory:file:create-folder',async(_event,relativePath:string)=>fs.mkdir(resolveVaultPath(relativePath),{recursive:false}));
 ipcMain.handle('ivory:file:rename',async(_event,fromPath:string,toPath:string)=>fs.rename(resolveVaultPath(fromPath),resolveVaultPath(toPath)));
 ipcMain.handle('ivory:file:delete',async(_event,relativePath:string)=>fs.rm(resolveVaultPath(relativePath),{recursive:true,force:false}));
+ipcMain.handle('ivory:window:control',async(_event,action:WindowControlAction)=>{if(!mainWindow||mainWindow.isDestroyed())return;if(action==='minimize')mainWindow.minimize();else if(action==='toggle-maximize')mainWindow.isMaximized()?mainWindow.unmaximize():mainWindow.maximize();else if(action==='close')mainWindow.close();});
 ipcMain.handle('ivory:vault:search',async(_event,query:string):Promise<SearchHit[]>=>{if(!vaultRoot||!query.trim())return[];const needle=query.toLocaleLowerCase();const results:SearchHit[]=[];async function walk(entries:VaultEntry[]):Promise<void>{for(const entry of entries){if(results.length>=100)return;if(entry.kind==='folder'){await walk(entry.children??[]);continue;}if(!entry.path.toLowerCase().endsWith('.md'))continue;const content=await fs.readFile(resolveVaultPath(entry.path),'utf8').catch(()=>'');const lines=content.split(/\r?\n/);for(let index=0;index<lines.length&&results.length<100;index+=1)if(lines[index].toLocaleLowerCase().includes(needle))results.push({path:entry.path,line:index+1,preview:lines[index].trim().slice(0,180)});}}await walk(await scanDirectory(vaultRoot));return results;});
 
 app.whenReady().then(async()=>{await createWindow();app.on('activate',async()=>{if(BrowserWindow.getAllWindows().length===0)await createWindow();});});
