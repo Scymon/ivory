@@ -1,0 +1,9 @@
+.image-viewer-host { position: absolute; inset: 0; overflow: hidden; background: var(--background-primary); }
+.image-viewer-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; cursor: grab; outline: none; }
+.image-viewer-stage.panning { cursor: grabbing; }
+.image-viewer-image { max-width: none; max-height: none; transform-origin: center center; user-select: none; image-rendering: auto; box-shadow: 0 8px 28px rgba(0,0,0,.28); }
+.image-viewer-toolbar { position: absolute; z-index: 20; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: rgba(24,24,24,.94); box-shadow: 0 4px 20px rgba(0,0,0,.25); }
+.image-viewer-toolbar button { height: 28px; padding: 0 9px; border-radius: 5px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.image-viewer-toolbar button:hover { background: var(--background-modifier); color: var(--text-normal); }
+.image-viewer-zoom { min-width: 48px; text-align: center; color: var(--text-faint); font-size: 11px; }
+.image-viewer-tab { border-left: 1px solid var(--border); }
