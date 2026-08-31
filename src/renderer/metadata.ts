@@ -10,10 +10,12 @@ export interface NoteMetadata {
   headings: string[];
 }
 
+const FRONTMATTER = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/;
+
 export function parseNote(path: string, source: string): NoteMetadata {
   let body = source;
   let frontmatter: Record<string, unknown> = {};
-  const match = source.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+  const match = source.match(FRONTMATTER);
   if (match) {
     body = source.slice(match[0].length);
     try {
@@ -41,6 +43,32 @@ export function parseNote(path: string, source: string): NoteMetadata {
     tags: [...new Set([...inlineTags, ...propertyTags])],
     headings
   };
+}
+
+export function replaceFrontmatter(source: string, frontmatter: Record<string, unknown>): string {
+  const body = source.replace(FRONTMATTER, '');
+  const keys = Object.keys(frontmatter);
+  if (keys.length === 0) return body.replace(/^\r?\n/, '');
+  const serialized = yaml.dump(frontmatter, {
+    noRefs: true,
+    lineWidth: -1,
+    sortKeys: false,
+    quotingType: '"',
+    forceQuotes: false
+  }).trimEnd();
+  return `---\n${serialized}\n---\n${body.replace(/^\r?\n/, '')}`;
+}
+
+export function parsePropertyInput(raw: string, previous?: unknown): unknown {
+  const value = raw.trim();
+  if (Array.isArray(previous)) return value ? value.split(',').map((item) => item.trim()).filter(Boolean) : [];
+  if (typeof previous === 'boolean') {
+    const lower = value.toLowerCase();
+    if (['true', 'yes', '1', 'on'].includes(lower)) return true;
+    if (['false', 'no', '0', 'off'].includes(lower)) return false;
+  }
+  if (typeof previous === 'number' && value !== '' && Number.isFinite(Number(value))) return Number(value);
+  return raw;
 }
 
 export function flattenMarkdown(entries: VaultEntry[]): string[] {
