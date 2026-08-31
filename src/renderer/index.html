@@ -50,7 +50,9 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="./renderer.js"></script>
-    <script type="module" src="./canvas.js"></script>
+    <script type="module">
+      await import('./renderer.js');
+      await import('./canvas.js');
+    </script>
   </body>
 </html>
