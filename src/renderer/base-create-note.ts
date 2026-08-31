@@ -50,7 +50,14 @@ form.addEventListener('submit', async event => {
     await window.ivory.createMarkdown(path);
     close();
     if (status) status.textContent = `Created ${path}`;
-    window.setTimeout(() => window.dispatchEvent(new CustomEvent('ivory:open-path', { detail: { path } })), 120);
+
+    // Do not wait for chokidar's awaitWriteFinish cycle before Bases notices
+    // a note that Ivory itself just created. This keeps the UI deterministic;
+    // the filesystem watcher remains the eventual consistency fallback.
+    window.dispatchEvent(new CustomEvent('ivory:base-note-created', { detail: { path } }));
+    window.dispatchEvent(new CustomEvent('ivory:vault-changed', { detail: { type: 'add', path, source: 'ivory' } }));
+
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('ivory:open-path', { detail: { path } })), 0);
   } catch (error) {
     if (status) status.textContent = `Create note failed: ${error instanceof Error ? error.message : String(error)}`;
   }
