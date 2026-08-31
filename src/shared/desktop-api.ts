@@ -9,7 +9,6 @@ export interface OpenVaultResult { root: string; name: string; entries: VaultEnt
 export interface VaultSnapshot { root: string; name: string; entries: VaultEntry[]; }
 export interface VaultChange { type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir'; path: string; }
 export interface SearchHit { path: string; line: number; preview: string; }
-export type WindowControlAction = 'minimize' | 'toggle-maximize' | 'close';
 
 export interface IvoryDesktopApi {
   chooseVault(): Promise<OpenVaultResult | null>;
@@ -22,7 +21,6 @@ export interface IvoryDesktopApi {
   deleteResource(relativePath: string): Promise<void>;
   searchVault(query: string): Promise<SearchHit[]>;
   getAssetUrl(relativePath: string): Promise<string>;
-  windowControl(action: WindowControlAction): Promise<void>;
   onVaultChange(callback: (change: VaultChange) => void): () => void;
 }
 
