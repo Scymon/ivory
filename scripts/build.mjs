@@ -11,6 +11,14 @@ const nodeShared = {
   external: ['electron']
 };
 
+const browserShared = {
+  bundle: true,
+  sourcemap: true,
+  platform: 'browser',
+  format: 'esm',
+  target: 'chrome138'
+};
+
 const main = {
   ...nodeShared,
   format: 'esm',
@@ -26,20 +34,22 @@ const preload = {
 };
 
 const renderer = {
-  bundle: true,
-  sourcemap: true,
-  platform: 'browser',
-  format: 'esm',
-  target: 'chrome138',
+  ...browserShared,
   entryPoints: ['src/renderer/index.ts'],
   outfile: 'dist/renderer.js'
+};
+
+const canvas = {
+  ...browserShared,
+  entryPoints: ['src/renderer/canvas.ts'],
+  outfile: 'dist/canvas.js'
 };
 
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
 await cp('src/renderer/styles.css', 'dist/styles.css');
 
-const configs = [main, preload, renderer];
+const configs = [main, preload, renderer, canvas];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
