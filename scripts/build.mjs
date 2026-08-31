@@ -48,6 +48,7 @@ const canvas = {
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
 await cp('src/renderer/styles.css', 'dist/styles.css');
+await cp('src/renderer/canvas.css', 'dist/canvas.css');
 
 const configs = [main, preload, renderer, canvas];
 
