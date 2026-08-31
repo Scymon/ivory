@@ -62,6 +62,7 @@ await cp('src/renderer/styles.css', 'dist/styles.css');
 await cp('src/renderer/canvas.css', 'dist/canvas.css');
 await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 await cp('src/renderer/bases.css', 'dist/bases.css');
+await cp('src/renderer/base-view-dropdown.css', 'dist/base-view-dropdown.css');
 
 const configs = [main, preload, renderer];
 
