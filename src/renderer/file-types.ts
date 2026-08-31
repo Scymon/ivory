@@ -1,4 +1,4 @@
-export type IvoryFileType = 'markdown' | 'canvas' | 'image' | null;
+export type IvoryFileType = 'markdown' | 'canvas' | 'image' | 'base' | null;
 
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico'
@@ -14,6 +14,7 @@ export function getFileType(path: string): IvoryFileType {
   const extension = extensionOf(path);
   if (extension === 'md') return 'markdown';
   if (extension === 'canvas') return 'canvas';
+  if (extension === 'base') return 'base';
   if (IMAGE_EXTENSIONS.has(extension)) return 'image';
   return null;
 }
@@ -30,9 +31,12 @@ export function isImageFile(path: string): boolean {
   return getFileType(path) === 'image';
 }
 
+export function isBaseFile(path: string): boolean {
+  return getFileType(path) === 'base';
+}
+
 export function isNativeExplorerFile(path: string): boolean {
   return getFileType(path) !== null;
 }
 
-// Backwards-compatible alias while older modules are migrated to getFileType().
 export const nativeFileKind = getFileType;
