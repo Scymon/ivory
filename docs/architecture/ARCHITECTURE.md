@@ -15,11 +15,20 @@ Ivory Desktop uses:
 - **Electron** as the desktop application shell;
 - **Chromium** as the renderer/runtime environment;
 - **TypeScript** as the primary application and plugin/API language;
+- **Vanilla DOM/CSS** for the main application UI layer rather than React or another large component framework;
 - **CodeMirror 6** as the Markdown editor engine.
 
-These are deliberate architectural choices, not placeholders. Electron/Chromium/TypeScript keep Ivory in a JavaScript/DOM environment suited to the V0 desktop-parity goal and later Obsidian plugin compatibility. CodeMirror 6 provides the editor substrate on which Ivory will independently implement its Markdown authoring behavior, including Source-style editing, Live Preview-style editing, editor extensions, and interactive Markdown features.
+These are deliberate architectural choices, not placeholders. Electron/Chromium/TypeScript keep Ivory in a JavaScript/DOM environment suited to the V0 desktop-parity goal and later Obsidian plugin compatibility. A lean DOM/CSS UI layer keeps the application close to the browser platform and avoids introducing a framework abstraction that is not required by the product. CodeMirror 6 provides the editor substrate on which Ivory will independently implement its Markdown authoring behavior, including Source-style editing, Live Preview-style editing, editor extensions, and interactive Markdown features.
 
 A future change away from this locked stack is an architecture change and must be explicitly documented rather than introduced incrementally.
+
+## UI layer rule
+
+Ivory's primary UI should be built with TypeScript, DOM APIs, and CSS, using small internal abstractions only where they reduce repetition or clarify lifecycle/state ownership.
+
+Do not introduce React, Vue, Svelte, or another full UI framework into the core desktop renderer merely for convenience. If a future feature or isolated surface has a compelling reason to use another rendering library, it must remain bounded and must not redefine the application architecture.
+
+The goal is not to imitate Obsidian's private implementation, but to remain architecturally lean and close to the same general Electron/Chromium/DOM environment that plugin authors interact with.
 
 ## Editor boundary
 
@@ -78,6 +87,7 @@ Electron Main Process
                 v
 Chromium Renderer
 |
++-- Vanilla TypeScript / DOM / CSS UI
 +-- Ivory UI / Workspace
 +-- CodeMirror-backed Editor
 +-- Canvas
@@ -102,6 +112,7 @@ Ivory Desktop Application (Electron)
 |   +-- IPC / preload bridge
 |
 +-- UI / Workspace (Chromium renderer)
+|   +-- vanilla TypeScript / DOM / CSS
 |   +-- panes
 |   +-- tabs
 |   +-- views
@@ -202,4 +213,4 @@ These categories should not be casually mixed.
 
 ## Architecture changes
 
-A change that alters the locked application/editor stack, Electron process boundary, subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
+A change that alters the locked application/editor/UI stack, Electron process boundary, subsystem ownership, dependency direction, public plugin contracts, vault representation, or compatibility guarantees must update the relevant documentation in the same change.
