@@ -1,16 +1,13 @@
 import './workspace-router.js';
 import { isImageFile, isNativeExplorerFile } from './file-types.js';
+import { activateIvoryTab, registerIvoryTab } from './tab-system.js';
 
 const workspaceBody = document.querySelector<HTMLElement>('.workspace-body');
-const tabBar = document.querySelector<HTMLElement>('#tab-bar');
 const fileTree = document.querySelector<HTMLElement>('#file-tree');
-const editorHost = document.querySelector<HTMLElement>('#editor-host');
-const readingHost = document.querySelector<HTMLElement>('#reading-host');
-const welcome = document.querySelector<HTMLElement>('#welcome');
 const statusLeft = document.querySelector<HTMLElement>('#status-left');
 const statusRight = document.querySelector<HTMLElement>('#status-right');
 
-if (!workspaceBody || !tabBar || !fileTree || !editorHost || !readingHost || !welcome || !statusLeft || !statusRight) {
+if (!workspaceBody || !fileTree || !statusLeft || !statusRight) {
   throw new Error('Image viewer bootstrap could not find the Ivory workspace.');
 }
 
@@ -35,7 +32,6 @@ const image = host.querySelector<HTMLImageElement>('.image-viewer-image')!;
 const zoomLabel = host.querySelector<HTMLElement>('.image-viewer-zoom')!;
 
 let imagePath: string | null = null;
-let imageTab: HTMLButtonElement | null = null;
 let zoom = 1;
 let panX = 0;
 let panY = 0;
@@ -67,40 +63,6 @@ async function resolveImagePathByName(name: string): Promise<string | null> {
   return matches[0] ?? null;
 }
 
-function showImageViewer(): void {
-  window.dispatchEvent(new Event('ivory:show-image'));
-  host.classList.remove('hidden');
-  imageTab?.classList.add('active');
-  statusRight.textContent = 'Image';
-}
-
-function hideImageViewer(): void {
-  host.classList.add('hidden');
-  imageTab?.classList.remove('active');
-}
-
-function ensureTab(path: string): void {
-  imageTab?.remove();
-  imageTab = document.createElement('button');
-  imageTab.className = 'tab active image-viewer-tab';
-  imageTab.title = path;
-  const label = document.createElement('span');
-  label.textContent = leafName(path);
-  const close = document.createElement('span');
-  close.className = 'tab-close';
-  close.textContent = '×';
-  close.addEventListener('click', (event) => {
-    event.stopPropagation();
-    hideImageViewer();
-    imageTab?.remove();
-    imageTab = null;
-    imagePath = null;
-  });
-  imageTab.append(label, close);
-  imageTab.addEventListener('click', showImageViewer);
-  tabBar.append(imageTab);
-}
-
 function applyTransform(): void {
   image.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
@@ -115,37 +77,48 @@ function fitImage(): void {
   applyTransform();
 }
 
-async function openImage(path: string): Promise<void> {
+async function showImage(path: string): Promise<void> {
   imagePath = path;
-  ensureTab(path);
-  showImageViewer();
-  image.alt = leafName(path);
-  image.src = await window.ivory.getAssetUrl(path);
-  image.onload = fitImage;
+  window.dispatchEvent(new Event('ivory:show-image'));
+  host.classList.remove('hidden');
+  statusRight.textContent = 'Image';
   statusLeft.textContent = path;
+  image.alt = leafName(path);
+  const url = await window.ivory.getAssetUrl(path);
+  if (image.src !== url) {
+    image.onload = fitImage;
+    image.src = url;
+  } else {
+    applyTransform();
+  }
+}
+
+async function openImage(path: string): Promise<void> {
+  registerIvoryTab({
+    path,
+    label: leafName(path),
+    kind: 'image',
+    activate: () => showImage(path),
+    close: () => {
+      if (imagePath === path) {
+        imagePath = null;
+        host.classList.add('hidden');
+        image.removeAttribute('src');
+      }
+    }
+  });
+  await activateIvoryTab(path);
 }
 
 fileTree.addEventListener('click', async (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.tree-file');
   if (!button) return;
-  const name = button.textContent?.trim() ?? '';
-  if (!isImageFile(name)) return;
+  const candidate = button.dataset.path ?? button.textContent?.trim() ?? '';
+  if (!isImageFile(candidate)) return;
   event.preventDefault();
   event.stopPropagation();
-  const path = await resolveImagePathByName(name);
+  const path = button.dataset.path || await resolveImagePathByName(candidate);
   if (path) await openImage(path);
-}, true);
-
-tabBar.addEventListener('click', (event) => {
-  const tab = (event.target as HTMLElement).closest('.tab');
-  if (tab && !tab.classList.contains('image-viewer-tab')) hideImageViewer();
-}, true);
-
-fileTree.addEventListener('click', (event) => {
-  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.tree-file');
-  if (!button) return;
-  const path = button.dataset.path ?? button.textContent?.trim() ?? '';
-  if (!isImageFile(path)) hideImageViewer();
 }, true);
 
 let pan: { startX: number; startY: number; panX: number; panY: number } | null = null;
