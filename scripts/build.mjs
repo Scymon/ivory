@@ -31,6 +31,7 @@ const canvasMarkdown = { ...browserShared, entryPoints: ['src/renderer/canvas-ma
 const imageViewer = { ...browserShared, entryPoints: ['src/renderer/image-viewer.ts'], outfile: 'dist/image-viewer.js' };
 const bases = { ...browserShared, entryPoints: ['src/renderer/bases.ts'], outfile: 'dist/bases.js' };
 const basePromptBridge = { ...browserShared, entryPoints: ['src/renderer/base-prompt-bridge.ts'], outfile: 'dist/base-prompt-bridge.js' };
+const baseCreateNote = { ...browserShared, entryPoints: ['src/renderer/base-create-note.ts'], outfile: 'dist/base-create-note.js' };
 
 await mkdir('dist', { recursive: true });
 await cp('src/renderer/index.html', 'dist/index.html');
@@ -39,7 +40,7 @@ await cp('src/renderer/canvas.css', 'dist/canvas.css');
 await cp('src/renderer/image-viewer.css', 'dist/image-viewer.css');
 await cp('src/renderer/bases.css', 'dist/bases.css');
 
-const configs = [main, preload, renderer, workspaceRouter, reopenGuard, documentSync, openPath, canvas, canvasMarkdown, imageViewer, bases, basePromptBridge];
+const configs = [main, preload, renderer, workspaceRouter, reopenGuard, documentSync, openPath, canvas, canvasMarkdown, imageViewer, bases, basePromptBridge, baseCreateNote];
 
 if (watch) {
   const contexts = await Promise.all(configs.map((config) => context(config)));
