@@ -5,28 +5,10 @@ export interface VaultEntry {
   children?: VaultEntry[];
 }
 
-export interface OpenVaultResult {
-  root: string;
-  name: string;
-  entries: VaultEntry[];
-}
-
-export interface VaultSnapshot {
-  root: string;
-  name: string;
-  entries: VaultEntry[];
-}
-
-export interface VaultChange {
-  type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir';
-  path: string;
-}
-
-export interface SearchHit {
-  path: string;
-  line: number;
-  preview: string;
-}
+export interface OpenVaultResult { root: string; name: string; entries: VaultEntry[]; }
+export interface VaultSnapshot { root: string; name: string; entries: VaultEntry[]; }
+export interface VaultChange { type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir'; path: string; }
+export interface SearchHit { path: string; line: number; preview: string; }
 
 export interface IvoryDesktopApi {
   chooseVault(): Promise<OpenVaultResult | null>;
@@ -38,11 +20,8 @@ export interface IvoryDesktopApi {
   renameResource(fromPath: string, toPath: string): Promise<void>;
   deleteResource(relativePath: string): Promise<void>;
   searchVault(query: string): Promise<SearchHit[]>;
+  getAssetUrl(relativePath: string): Promise<string>;
   onVaultChange(callback: (change: VaultChange) => void): () => void;
 }
 
-declare global {
-  interface Window {
-    ivory: IvoryDesktopApi;
-  }
-}
+declare global { interface Window { ivory: IvoryDesktopApi; } }
